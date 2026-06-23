@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema Monotolva</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;font-size:15px;background:#f5f5f0;color:#1a1a1a;min-height:100vh}
+.wrap{max-width:520px;margin:0 auto;padding:1rem}
+h1{font-size:18px;font-weight:500;margin-bottom:1rem;display:flex;align-items:center;gap:8px}
+.card{background:#fff;border:0.5px solid #ddd;border-radius:12px;padding:1.25rem;margin-bottom:1rem}
+.card-title{font-size:13px;font-weight:500;color:#666;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+label{font-size:13px;color:#666;display:block;margin-bottom:4px}
+input,select{width:100%;padding:9px 10px;border-radius:8px;border:0.5px solid #ccc;background:#f8f8f6;color:#1a1a1a;font-size:14px;font-family:inherit}
+input:focus,select:focus{outline:none;border-color:#1D9E75;box-shadow:0 0 0 3px rgba(29,158,117,0.15)}
+button{padding:11px 16px;border-radius:8px;border:0.5px solid #ccc;background:#fff;color:#1a1a1a;font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;width:100%;font-family:inherit;transition:background 0.15s}
+button:hover{background:#f0f0ec}
+button:active{transform:scale(0.98)}
+button.primary{background:#1D9E75;color:#fff;border-color:#1D9E75}
+button.primary:hover{background:#0F6E56}
+button.blue{background:#185FA5;color:#fff;border-color:#185FA5}
+button.blue:hover{background:#0C447C}
+button.danger{background:#FCEBEB;color:#A32D2D;border-color:#F09595}
+button:disabled{opacity:0.4;cursor:not-allowed}
+.metric{background:#f5f5f0;border-radius:8px;padding:1rem;text-align:center}
+.metric-label{font-size:12px;color:#666;margin-bottom:4px}
+.metric-val{font-size:26px;font-weight:500;line-height:1.1}
+.metric-unit{font-size:12px;color:#888;margin-top:2px}
+.barra-wrap{background:#eee;border-radius:8px;overflow:hidden;height:20px;margin:8px 0}
+.barra-fill{height:100%;border-radius:8px;transition:width 0.4s;background:#1D9E75}
+.barra-fill.warn{background:#BA7517}
+.barra-fill.danger{background:#E24B4A}
+.sep{border:none;border-top:0.5px solid #e5e5e5;margin:12px 0}
+.hist-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:0.5px solid #eee;font-size:13px}
+.hist-row:last-child{border-bottom:none}
+.grid2-btn{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.bt-bar{display:flex;align-items:center;gap:8px;background:#fff;border:0.5px solid #ddd;border-radius:12px;padding:10px 14px;margin-bottom:1rem}
+.bt-dot{width:10px;height:10px;border-radius:50%;background:#ccc;flex-shrink:0;transition:background 0.3s}
+.bt-dot.conectado{background:#1D9E75}
+.bt-dot.buscando{background:#BA7517;animation:pulso 0.8s infinite alternate}
+@keyframes pulso{to{opacity:0.3}}
+.bt-info{flex:1;font-size:13px;color:#666}
+.bt-info strong{color:#1a1a1a;font-weight:500}
+.tolva-live{display:flex;align-items:center;gap:6px;font-size:12px;margin-top:6px}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#ccc}
+.live-dot.on{background:#1D9E75;animation:pulso 1s infinite alternate}
+@media(max-width:400px){.grid2,.grid3,.grid2-btn{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><i class="ti ti-tractor"></i> Sistema Monotolva</h1>
+
+  <!-- BARRA BLUETOOTH SIEMPRE VISIBLE -->
+  <div class="bt-bar">
+    <div class="bt-dot" id="bt-dot"></div>
+    <div class="bt-info" id="bt-info"><strong>Balanza</strong> — desconectada</div>
+    <button onclick="toggleBT()" id="btn-bt" style="width:auto;padding:7px 12px;font-size:13px">
+      <i class="ti ti-bluetooth" id="bt-icon"></i> Conectar
+    </button>
+    <button onclick="enviarTara()" id="btn-tara" disabled style="width:auto;padding:7px 10px;font-size:13px" title="Tara">
+      <i class="ti ti-scale"></i>
+    </button>
+  </div>
+
+  <!-- PANTALLA 1: FORMULARIO -->
+  <div id="pantalla-form">
+    <div class="card">
+      <div class="card-title"><i class="ti ti-truck"></i> Datos del camión</div>
+      <div class="grid2" style="margin-bottom:10px">
+        <div><label>Patente / dominio</label><input id="patente" placeholder="ABC 123" style="text-transform:uppercase"></div>
+        <div><label>Chofer</label><input id="chofer" placeholder="Apellido y nombre"></div>
+      </div>
+      <div class="grid2">
+        <div><label>Empresa / transporte</label><input id="empresa" placeholder="Transporte XYZ"></div>
+        <div><label>Fecha</label><input id="fecha" type="date"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><i class="ti ti-file-text"></i> Carta de porte</div>
+      <div class="grid2" style="margin-bottom:10px">
+        <div><label>N° carta de porte</label><input id="carta" placeholder="Ej: 00012345"></div>
+        <div><label>Destino</label><input id="destino" placeholder="Puerto / Acopio"></div>
+      </div>
+      <div class="grid2">
+        <div>
+          <label>Producto</label>
+          <select id="producto">
+            <option>Soja</option><option>Maíz</option><option>Trigo</option>
+            <option>Girasol</option><option>Sorgo</option><option>Otro</option>
+          </select>
+        </div>
+        <div><label>Kg a cargar (cupo)</label><input id="kg-cupo" type="number" placeholder="Ej: 28000" min="100" step="100"></div>
+      </div>
+    </div>
+    <button class="primary" onclick="iniciarCarga()"><i class="ti ti-player-play"></i> Iniciar carga</button>
+  </div>
+
+  <!-- PANTALLA 2: CARGA EN CURSO -->
+  <div id="pantalla-carga" style="display:none">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+        <div>
+          <div style="font-weight:500;font-size:16px" id="lbl-patente">—</div>
+          <div style="font-size:13px;color:#666" id="lbl-chofer">—</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:13px;color:#666" id="lbl-carta">—</div>
+          <div style="font-size:13px;color:#666" id="lbl-producto">—</div>
+        </div>
+      </div>
+      <hr class="sep">
+      <div class="grid3">
+        <div class="metric">
+          <div class="metric-label">Cupo camión</div>
+          <div class="metric-val" id="m-cupo">—</div>
+          <div class="metric-unit">kg</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Cargado</div>
+          <div class="metric-val" style="color:#1D9E75" id="m-cargado">0</div>
+          <div class="metric-unit">kg</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Falta</div>
+          <div class="metric-val" style="color:#BA7517" id="m-falta">—</div>
+          <div class="metric-unit">kg</div>
+        </div>
+      </div>
+      <div style="margin-top:12px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-bottom:4px">
+          <span>Progreso de carga</span><span id="m-pct">0%</span>
+        </div>
+        <div class="barra-wrap"><div class="barra-fill" id="barra" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <!-- TOLVA CON BLUETOOTH -->
+    <div class="card">
+      <div class="card-title"><i class="ti ti-container"></i> Tolva — lectura en vivo</div>
+      <div class="grid2" style="margin-bottom:10px">
+        <div class="metric" style="position:relative">
+          <div class="metric-label">Kg en tolva ahora</div>
+          <div class="metric-val" style="color:#185FA5" id="m-tolva">—</div>
+          <div class="metric-unit">kg</div>
+          <div class="tolva-live"><div class="live-dot" id="live-dot"></div><span id="live-txt" style="color:#999">sin señal</span></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Cap. tolva (kg)</div>
+          <input id="cap-tolva" type="number" placeholder="Ej: 5000" style="margin-top:4px;text-align:center;font-size:15px;font-weight:500;background:transparent;border:0.5px dashed #ccc">
+        </div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-bottom:4px">
+          <span>Nivel tolva</span><span id="lbl-tolva-pct">—</span>
+        </div>
+        <div class="barra-wrap"><div class="barra-fill" id="barra-tolva" style="width:0%;background:#185FA5"></div></div>
+      </div>
+      <hr class="sep">
+      <div class="card-title" style="margin-bottom:8px"><i class="ti ti-arrows-down"></i> Registrar descarga al camión</div>
+      <div style="font-size:12px;color:#666;margin-bottom:8px;background:#f0f7ff;padding:8px 10px;border-radius:8px;border:0.5px solid #b5d4f4">
+        <i class="ti ti-info-circle" style="font-size:14px;vertical-align:-2px"></i>
+        Vaciar la tolva sobre el camión y registrar los kg que indica la balanza.
+      </div>
+      <div class="grid2">
+        <div>
+          <label>Kg a registrar</label>
+          <input id="kg-descarga" type="number" placeholder="Ej: 3200" min="0" step="50">
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:6px">
+          <button onclick="usarPesoBT()" id="btn-usar-bt" title="Usar peso de la balanza" style="padding:11px 10px;width:auto;flex-shrink:0" disabled>
+            <i class="ti ti-bluetooth"></i>
+          </button>
+          <button class="primary" onclick="registrarDescarga()"><i class="ti ti-check"></i> Registrar</button>
+        </div>
+      </div>
+      <div style="font-size:12px;color:#666;margin-top:6px">El botón <i class="ti ti-bluetooth" style="font-size:13px"></i> copia el peso actual de la balanza al campo.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i class="ti ti-list"></i> Descargas registradas</div>
+      <div id="historial-descargas"><div style="font-size:13px;color:#999">Sin registros aún...</div></div>
+      <div id="resumen-final" style="display:none">
+        <hr class="sep">
+        <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:500;padding:4px 0">
+          <span>Total cargado</span><span id="total-final">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:#666;padding:4px 0">
+          <span>Diferencia con cupo</span><span id="diff-final">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid2-btn">
+      <button class="blue" onclick="completarCarga()"><i class="ti ti-flag"></i> Cerrar carga</button>
+      <button class="danger" onclick="nuevoCamion()"><i class="ti ti-refresh"></i> Nuevo camión</button>
+    </div>
+  </div>
+
+  <!-- PANTALLA 3: CIERRE -->
+  <div id="pantalla-cierre" style="display:none">
+    <div class="card" style="text-align:center;padding:2rem 1.25rem">
+      <i class="ti ti-circle-check" style="font-size:48px;color:#1D9E75;display:block;margin-bottom:12px"></i>
+      <div style="font-size:18px;font-weight:500;margin-bottom:6px">Carga completada</div>
+      <div style="font-size:13px;color:#666" id="cierre-subtitulo">—</div>
+    </div>
+    <div class="card" id="cierre-detalle"></div>
+    <button class="primary" onclick="nuevoCamion()"><i class="ti ti-plus"></i> Cargar siguiente camión</button>
+  </div>
+</div>
+
+<script>
+let estado={cupo:0,cargado:0,descargas:[],patente:'',chofer:'',carta:'',producto:'',destino:'',empresa:'',fecha:''};
+let btDevice=null, btChar=null, btBuffer='', pesoBT=null;
+
+document.getElementById('fecha').valueAsDate=new Date();
+function fmt(n){return Number(n).toLocaleString('es-AR')}
+
+// ── BLUETOOTH ─────────────────────────────────────────
+async function toggleBT(){
+  if(btDevice && btDevice.gatt.connected){ btDevice.gatt.disconnect(); return; }
+  const btn=document.getElementById('btn-bt');
+  const dot=document.getElementById('bt-dot');
+  try{
+    dot.className='bt-dot buscando';
+    document.getElementById('bt-info').innerHTML='<strong>Balanza</strong> — buscando...';
+    btn.disabled=true;
+    btDevice=await navigator.bluetooth.requestDevice({
+      filters:[{name:'HC-06'},{namePrefix:'HC'},{namePrefix:'hc'}],
+      optionalServices:['0000ffe0-0000-1000-8000-00805f9b34fb']
+    });
+    btDevice.addEventListener('gattserverdisconnected',onBTDesconectado);
+    const server=await btDevice.gatt.connect();
+    const service=await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
+    btChar=await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
+    await btChar.startNotifications();
+    btChar.addEventListener('characteristicvaluechanged',onBTDato);
+    onBTConectado();
+  }catch(e){
+    dot.className='bt-dot';
+    document.getElementById('bt-info').innerHTML='<strong>Balanza</strong> — error al conectar';
+    btn.disabled=false;
+    btn.innerHTML='<i class="ti ti-bluetooth"></i> Conectar';
+    if(e.name!=='NotFoundError') alert('BT: '+e.message);
+  }
+}
+
+function onBTConectado(){
+  document.getElementById('bt-dot').className='bt-dot conectado';
+  document.getElementById('bt-info').innerHTML='<strong>Balanza</strong> — '+btDevice.name;
+  const btn=document.getElementById('btn-bt');
+  btn.innerHTML='<i class="ti ti-bluetooth-off"></i> Desconectar';
+  btn.disabled=false;
+  document.getElementById('btn-tara').disabled=false;
+  document.getElementById('btn-usar-bt').disabled=false;
+}
+
+function onBTDesconectado(){
+  document.getElementById('bt-dot').className='bt-dot';
+  document.getElementById('bt-info').innerHTML='<strong>Balanza</strong> — desconectada';
+  document.getElementById('btn-bt').innerHTML='<i class="ti ti-bluetooth"></i> Conectar';
+  document.getElementById('btn-tara').disabled=true;
+  document.getElementById('btn-usar-bt').disabled=true;
+  document.getElementById('live-dot').className='live-dot';
+  document.getElementById('live-txt').textContent='sin señal';
+  btChar=null; pesoBT=null;
+}
+
+function onBTDato(event){
+  const dec=new TextDecoder();
+  btBuffer+=dec.decode(event.target.value);
+  const lines=btBuffer.split('\n');
+  btBuffer=lines.pop();
+  for(const line of lines){
+    const val=parseFloat(line.trim());
+    if(!isNaN(val) && val>=0){
+      pesoBT=val;
+      actualizarTolva(val);
+    }
+  }
+}
+
+function actualizarTolva(kg){
+  document.getElementById('m-tolva').textContent=fmt(Math.round(kg));
+  const ahora=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('live-dot').className='live-dot on';
+  document.getElementById('live-txt').textContent='actualizado '+ahora;
+  const capT=parseFloat(document.getElementById('cap-tolva').value)||0;
+  if(capT>0){
+    const pt=Math.min(100,Math.round(kg/capT*100));
+    document.getElementById('barra-tolva').style.width=pt+'%';
+    document.getElementById('lbl-tolva-pct').textContent=pt+'%';
+  }
+}
+
+async function enviarTara(){
+  if(!btChar)return;
+  await btChar.writeValue(new TextEncoder().encode('T\n'));
+  document.getElementById('live-txt').textContent='tara enviada...';
+}
+
+function usarPesoBT(){
+  if(pesoBT===null){alert('La balanza no está enviando datos todavía.');return;}
+  document.getElementById('kg-descarga').value=Math.round(pesoBT);
+}
+
+// ── CARGA ─────────────────────────────────────────────
+function iniciarCarga(){
+  const patente=document.getElementById('patente').value.trim();
+  const carta=document.getElementById('carta').value.trim();
+  const cupo=parseFloat(document.getElementById('kg-cupo').value);
+  if(!patente||!carta||!cupo||cupo<100){alert('Completá patente, carta de porte y kg a cargar.');return;}
+  estado={
+    cupo,cargado:0,descargas:[],
+    patente:patente.toUpperCase(),
+    chofer:document.getElementById('chofer').value||'Sin datos',
+    carta,
+    destino:document.getElementById('destino').value||'—',
+    producto:document.getElementById('producto').value,
+    empresa:document.getElementById('empresa').value||'—',
+    fecha:document.getElementById('fecha').value
+  };
+  document.getElementById('lbl-patente').textContent=estado.patente+' — '+estado.empresa;
+  document.getElementById('lbl-chofer').textContent=estado.chofer;
+  document.getElementById('lbl-carta').textContent='Carta N° '+estado.carta;
+  document.getElementById('lbl-producto').textContent=estado.producto+' → '+estado.destino;
+  document.getElementById('m-cupo').textContent=fmt(cupo);
+  actualizarMetrics();
+  document.getElementById('pantalla-form').style.display='none';
+  document.getElementById('pantalla-carga').style.display='block';
+}
+
+function registrarDescarga(){
+  const kg=parseFloat(document.getElementById('kg-descarga').value);
+  if(!kg||kg<=0){alert('Ingresá los kg descargados.');return;}
+  const resta=estado.cupo-estado.cargado;
+  const real=Math.min(kg,resta);
+  estado.cargado+=real;
+  const hora=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+  estado.descargas.push({kg:real,hora,num:estado.descargas.length+1});
+  document.getElementById('kg-descarga').value='';
+  actualizarMetrics();
+  renderHistorial();
+  if(estado.cargado>=estado.cupo)completarCarga();
+}
+
+function actualizarMetrics(){
+  const c=estado.cargado,q=estado.cupo,f=Math.max(0,q-c);
+  const pct=Math.min(100,Math.round(c/q*100));
+  document.getElementById('m-cargado').textContent=fmt(Math.round(c));
+  document.getElementById('m-falta').textContent=fmt(Math.round(f));
+  document.getElementById('m-pct').textContent=pct+'%';
+  const b=document.getElementById('barra');
+  b.style.width=pct+'%';
+  b.className='barra-fill'+(pct>=95?' danger':pct>=75?' warn':'');
+  if(estado.descargas.length>0){
+    document.getElementById('resumen-final').style.display='block';
+    document.getElementById('total-final').textContent=fmt(Math.round(c))+' kg';
+    const diff=c-q;
+    const el=document.getElementById('diff-final');
+    el.textContent=(diff>=0?'+':'')+fmt(Math.round(diff))+' kg';
+    el.style.color=Math.abs(diff)<200?'#1D9E75':'#A32D2D';
+  }
+}
+
+function renderHistorial(){
+  const cont=document.getElementById('historial-descargas');
+  if(!estado.descargas.length){cont.innerHTML='<div style="font-size:13px;color:#999">Sin registros aún...</div>';return;}
+  cont.innerHTML=estado.descargas.map(d=>`
+    <div class="hist-row">
+      <span style="color:#999">#${d.num} — ${d.hora}</span>
+      <span style="font-weight:500">${fmt(Math.round(d.kg))} kg</span>
+    </div>`).join('');
+}
+
+function completarCarga(){
+  const fecha=estado.fecha?new Date(estado.fecha+'T12:00:00').toLocaleDateString('es-AR'):'—';
+  document.getElementById('cierre-subtitulo').textContent=estado.patente+' — '+estado.producto+' — '+fecha;
+  const diff=estado.cargado-estado.cupo;
+  document.getElementById('cierre-detalle').innerHTML=`
+    <table style="width:100%;font-size:14px;border-collapse:collapse">
+      <tr><td style="padding:6px 0;color:#666">Patente</td><td style="text-align:right;font-weight:500">${estado.patente}</td></tr>
+      <tr><td style="padding:6px 0;color:#666">Chofer</td><td style="text-align:right">${estado.chofer}</td></tr>
+      <tr><td style="padding:6px 0;color:#666">Empresa</td><td style="text-align:right">${estado.empresa}</td></tr>
+      <tr><td style="padding:6px 0;color:#666">Carta N°</td><td style="text-align:right">${estado.carta}</td></tr>
+      <tr><td style="padding:6px 0;color:#666">Destino</td><td style="text-align:right">${estado.destino}</td></tr>
+      <tr><td style="padding:6px 0;color:#666">Producto</td><td style="text-align:right">${estado.producto}</td></tr>
+      <tr style="border-top:0.5px solid #eee">
+        <td style="padding:8px 0;color:#666">Cupo</td>
+        <td style="text-align:right;font-weight:500">${fmt(estado.cupo)} kg</td>
+      </tr>
+      <tr>
+        <td style="padding:6px 0;color:#666">Total cargado</td>
+        <td style="text-align:right;font-weight:500;color:#1D9E75">${fmt(Math.round(estado.cargado))} kg</td>
+      </tr>
+      <tr>
+        <td style="padding:6px 0;color:#666">Diferencia</td>
+        <td style="text-align:right;font-weight:500;color:${Math.abs(diff)<200?'#1D9E75':'#A32D2D'}">${diff>=0?'+':''}${fmt(Math.round(diff))} kg</td>
+      </tr>
+      <tr>
+        <td style="padding:6px 0;color:#666">N° de descargas</td>
+        <td style="text-align:right">${estado.descargas.length}</td>
+      </tr>
+    </table>`;
+  document.getElementById('pantalla-carga').style.display='none';
+  document.getElementById('pantalla-cierre').style.display='block';
+}
+
+function nuevoCamion(){
+  ['patente','chofer','empresa','carta','destino','kg-cupo','kg-descarga','cap-tolva'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
+  document.getElementById('m-tolva').textContent='—';
+  document.getElementById('fecha').valueAsDate=new Date();
+  document.getElementById('historial-descargas').innerHTML='<div style="font-size:13px;color:#999">Sin registros aún...</div>';
+  document.getElementById('resumen-final').style.display='none';
+  ['pantalla-carga','pantalla-cierre'].forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById('pantalla-form').style.display='block';
+}
+
+document.getElementById('cap-tolva').addEventListener('input',actualizarMetrics);
+</script>
+</body>
+</html>
