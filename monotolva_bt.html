@@ -597,7 +597,7 @@ function syncFirebaseVivo(){
     let tipo=null, datos=null;
     if(estado && estado.cupo>0){ tipo='camion'; datos=estado; }
     else if(typeof estadoBolsa!=='undefined' && estadoBolsa){ tipo='silobolsa'; datos=estadoBolsa; }
-    fbDb.ref('vivo').set({tipo, datos, actualizado:Date.now()})
+    fbDb.ref('vivo').set({tipo, datos, actualizado:Date.now(), pesoTolva:pesoBT, pesoTolvaTs:Date.now()})
       .catch(e=>console.warn('Firebase (vivo) sin conexión, se reintenta después:',e.message));
   }catch(e){console.warn('Error subiendo estado en vivo a Firebase:',e);}
 }
@@ -1028,6 +1028,18 @@ function renderCalEstado(){
   calEl.textContent='Factor guardado: '+(calEstado.factor??'—')+'\nCero guardado: '+(calEstado.cero??'—')+'\nTara operativa: '+(calEstado.tara??'—');
 }
 
+let ultimoSyncPesoLive=0;
+function syncFirebasePesoLive(kg){
+  if(!fbDb)return;
+  const ahora=Date.now();
+  if(ahora-ultimoSyncPesoLive<4000)return;   // como mucho cada 4 segundos, para no saturar Firebase
+  ultimoSyncPesoLive=ahora;
+  try{
+    fbDb.ref('vivo/pesoTolva').set(kg).catch(()=>{});
+    fbDb.ref('vivo/pesoTolvaTs').set(ahora).catch(()=>{});
+  }catch(e){/* sin conexión, se reintenta con la próxima lectura */}
+}
+
 function actualizarTolva(kg){
   document.getElementById('m-tolva').textContent=fmt(Math.round(kg));
   const elEnsayo=document.getElementById('ensayo-peso');
@@ -1036,6 +1048,7 @@ function actualizarTolva(kg){
   if(elSbTolva)elSbTolva.textContent=fmt(Math.round(kg));
   actualizarLiveDescargaCamion();
   actualizarLiveDescargaBolsa();
+  syncFirebasePesoLive(kg);
   const ahora=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   document.getElementById('live-dot').className='live-dot on';
   document.getElementById('live-txt').textContent='actualizado '+ahora;
