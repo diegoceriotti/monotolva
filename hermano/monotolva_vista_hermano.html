@@ -71,6 +71,16 @@ h1{font-size:19px;font-weight:800;margin-bottom:0.25rem;display:flex;align-items
   <h1><i class="ti ti-tractor"></i> Monotolva</h1>
   <div class="subt"><span class="live-dot" id="conn-dot"></span><span id="conn-txt">conectando...</span></div>
 
+  <!-- KG EN TOLVA AHORA — siempre visible, viene directo de la balanza -->
+  <div class="card" id="card-peso-tolva">
+    <div class="card-title"><i class="ti ti-container"></i> Kg en tolva ahora</div>
+    <div class="metric" style="text-align:center">
+      <div class="metric-val" style="font-size:32px;color:#7FB0E0" id="peso-tolva-val">—</div>
+      <div class="metric-unit">kg</div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px" id="peso-tolva-txt">sin datos aún</div>
+  </div>
+
   <!-- ESTADO EN VIVO -->
   <div class="card" id="card-vivo">
     <div class="card-title"><i class="ti ti-broadcast"></i> Estado en vivo</div>
@@ -127,6 +137,23 @@ db.ref('.info/connected').on('value', snap=>{
   }else{
     dot.className='live-dot';
     txt.textContent='sin conexión — mostrando lo último que se vio';
+  }
+});
+
+// ── KG EN TOLVA AHORA (siempre, independiente del estado) ──
+db.ref('vivo').on('value', snap=>{
+  const data=snap.val();
+  const val=document.getElementById('peso-tolva-val');
+  const txt=document.getElementById('peso-tolva-txt');
+  if(!data || data.pesoTolva===undefined || data.pesoTolva===null){
+    val.textContent='—';
+    txt.textContent='sin datos aún';
+    return;
+  }
+  val.textContent=fmt(Math.round(data.pesoTolva));
+  if(data.pesoTolvaTs){
+    const seg=Math.round((Date.now()-data.pesoTolvaTs)/1000);
+    txt.textContent = seg<10 ? 'actualizado recién' : 'actualizado hace '+seg+' s';
   }
 });
 
