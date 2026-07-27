@@ -2,7 +2,7 @@
   "name": "Sistema Monotolva",
   "short_name": "Monotolva",
   "start_url": "./monotolva_bt.html",
-  "scope": "./",
+  "scope": "./monotolva_bt.html",
   "display": "standalone",
   "background_color": "#f5f5f0",
   "theme_color": "#1D9E75",

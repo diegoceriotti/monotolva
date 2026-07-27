@@ -2,7 +2,7 @@
   "name": "Monotolva - Vista en vivo",
   "short_name": "Monotolva Hno",
   "start_url": "./monotolva_vista_hermano.html",
-  "scope": "./",
+  "scope": "./monotolva_vista_hermano.html",
   "display": "standalone",
   "background_color": "#14161a",
   "theme_color": "#D9463B",
