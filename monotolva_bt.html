@@ -569,12 +569,25 @@ try{
 function syncFirebaseHistorial(){
   if(!fbDb)return;
   try{
-    fbDb.ref('historial').set({
-      camiones:cargasDelDia,
-      silobolsas:silobolsasCerradas,
-      ensayos:ensayosGuardados,
-      actualizado:Date.now()
-    }).catch(e=>console.warn('Firebase (historial) sin conexión, se reintenta después:',e.message));
+    // Salvaguarda: nunca subir un historial más chico que el que ya hay en
+    // la nube — evita que un dispositivo que quedó "en blanco" (por ej. al
+    // borrar datos del sitio en Chrome) termine borrando sin querer todo lo
+    // que ya estaba sincronizado.
+    fbDb.ref('historial').once('value').then(snap=>{
+      const actual=snap.val()||{};
+      const totalActual=(actual.camiones?.length||0)+(actual.silobolsas?.length||0)+(actual.ensayos?.length||0);
+      const totalNuevo=cargasDelDia.length+silobolsasCerradas.length+ensayosGuardados.length;
+      if(totalNuevo<totalActual){
+        console.warn('Sync de historial CANCELADO: este dispositivo tiene menos datos ('+totalNuevo+') que la nube ('+totalActual+'). No se sobrescribe para evitar pérdida de datos.');
+        return;
+      }
+      fbDb.ref('historial').set({
+        camiones:cargasDelDia,
+        silobolsas:silobolsasCerradas,
+        ensayos:ensayosGuardados,
+        actualizado:Date.now()
+      }).catch(e=>console.warn('Firebase (historial) sin conexión, se reintenta después:',e.message));
+    }).catch(e=>console.warn('No se pudo leer historial actual de Firebase antes de sincronizar:',e.message));
   }catch(e){console.warn('Error subiendo historial a Firebase:',e);}
 }
 
@@ -699,13 +712,12 @@ function restaurarSesionActiva(){
       document.getElementById('pantalla-silobolsa-carga').style.display='block';
     }
 
-    // Si había algo en curso, avisamos y llevamos a esa pestaña
+    // Si había algo en curso, lo restauramos y llevamos a esa pestaña
+    // (sin cartel de aviso — se ve reflejado directo en la pantalla).
     if(data.estado && data.estado.cupo>0){
       cambiarModo('camion');
-      setTimeout(()=>alert('Se recuperó una carga de camión que había quedado en curso.'),200);
     }else if(data.estadoBolsa){
       cambiarModo('silobolsa');
-      setTimeout(()=>alert('Se recuperó una silobolsa que había quedado en curso.'),200);
     }
   }catch(e){console.warn('No se pudo restaurar la sesión activa:',e);}
 }
