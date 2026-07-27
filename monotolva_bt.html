@@ -106,7 +106,7 @@ button:disabled{opacity:0.35;cursor:not-allowed}
     <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Este archivo no tiene historial todavía. Si tenés un backup de una versión anterior, restauralo ahora para no perder nada.</div>
     <div class="grid2-btn">
       <button class="primary" onclick="document.getElementById('input-restaurar-backup-banner').click()"><i class="ti ti-upload"></i> Restaurar backup</button>
-      <button onclick="document.getElementById('banner-restaurar').style.display='none'"><i class="ti ti-x"></i> No, empezar de cero</button>
+      <button onclick="cerrarBannerRestaurar()"><i class="ti ti-x"></i> No, empezar de cero</button>
     </div>
     <input type="file" id="input-restaurar-backup-banner" accept="application/json,.json" style="display:none" onchange="restaurarBackup(event)">
   </div>
@@ -538,6 +538,10 @@ button:disabled{opacity:0.35;cursor:not-allowed}
     </div>
   </div>
 
+  <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
+    Monotolva — versión 2026-07-27
+  </div>
+
 </div>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
@@ -632,6 +636,7 @@ function fmt(n){return Number(n).toLocaleString('es-AR')}
 // ── PERSISTENCIA LOCAL (memoria del navegador/tablet) ─
 const LS_KEY='monotolva_resumen_dia';
 const LS_KEY_SESION='monotolva_sesion_activa';
+const LS_KEY_EMPEZAR_CERO='monotolva_empezar_cero_elegido';
 function hoyStr(){return new Date().toLocaleDateString('es-AR')}
 
 function guardarLocal(){
@@ -651,8 +656,11 @@ function cargarLocal(){
     if(!raw){
       // No hay datos guardados en este archivo/navegador todavía.
       // Puede ser la primera vez, o una versión nueva del archivo.
-      const banner=document.getElementById('banner-restaurar');
-      if(banner)banner.style.display='block';
+      // Si ya eligió antes "empezar de cero", no volvemos a preguntar.
+      if(localStorage.getItem(LS_KEY_EMPEZAR_CERO)!=='1'){
+        const banner=document.getElementById('banner-restaurar');
+        if(banner)banner.style.display='block';
+      }
       return;
     }
     const data=JSON.parse(raw);
@@ -660,6 +668,12 @@ function cargarLocal(){
     ensayosGuardados=data.ensayosGuardados||[];
     silobolsasCerradas=data.silobolsasCerradas||[];
   }catch(e){console.warn('No se pudo leer del dispositivo:',e);}
+}
+
+function cerrarBannerRestaurar(){
+  try{ localStorage.setItem(LS_KEY_EMPEZAR_CERO,'1'); }catch(e){}
+  const banner=document.getElementById('banner-restaurar');
+  if(banner)banner.style.display='none';
 }
 
 // ── SESIÓN ACTIVA (camión/silobolsa EN CURSO, sin cerrar) ──
