@@ -539,7 +539,7 @@ button:disabled{opacity:0.35;cursor:not-allowed}
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-07-27
+    Monotolva — versión 2026-07-28
   </div>
 
 </div>
@@ -609,6 +609,7 @@ const UMBRAL_ALARMA_KG=1300;   // suena la alarma mientras falten esto o menos k
 let faltaActualCamion=null;    // se actualiza en vivo; null = no hay camión activo o no aplica
 let ultimoBeepCamion=0;        // timestamp del último pitido, para calcular la frecuencia creciente
 let calEstado={factor:null,cero:null,tara:null};
+let calRespuestaTs=0;   // se actualiza cada vez que llega una respuesta real de calibración del Nano
 let ensayosGuardados=[];
 let cargasDelDia=[];
 let silobolsasCerradas=[];
@@ -1012,19 +1013,25 @@ function onBTDato(event){
 function procesarRespuestaTexto(text){
   const calEl=document.getElementById('cal-estado');
   if(text.startsWith('CERO_OK:')){
+    calRespuestaTs=Date.now();
     calEstado.cero=text.split(':')[1];
     if(calEl)calEl.textContent='✅ Cero ajustado y guardado correctamente: '+calEstado.cero;
   }else if(text.startsWith('CAL_OK:')){
+    calRespuestaTs=Date.now();
     calEstado.factor=text.split(':')[1];
     if(calEl)calEl.textContent='✅ Factor ajustado y guardado correctamente: '+calEstado.factor;
   }else if(text==='CAL_ERROR'){
+    calRespuestaTs=Date.now();
     if(calEl)calEl.textContent='❌ Error al ajustar el factor. Verificá que el peso de referencia esté sobre la celda y que ya hayas hecho el Paso 1 (cero).';
   }else if(text.startsWith('FACTOR_MANUAL_OK:')){
+    calRespuestaTs=Date.now();
     calEstado.factor=text.split(':')[1];
     if(calEl)calEl.textContent='✅ Factor aplicado manualmente: '+calEstado.factor;
   }else if(text==='FACTOR_MANUAL_ERROR'){
+    calRespuestaTs=Date.now();
     if(calEl)calEl.textContent='❌ Valor de factor inválido. Probá de nuevo.';
   }else if(text.startsWith('FACTOR:')){
+    calRespuestaTs=Date.now();
     // Formato combinado: FACTOR:13200.0|CERO:123456|TARA:OFF
     const partes=text.split('|');
     partes.forEach(p=>{
@@ -1150,12 +1157,34 @@ async function enviarTara(){
 }
 
 // ── CALIBRACIÓN DE BALANZA ─────────────────────────────
+// ── Envío de comando de calibración QUE ESPERA RESPUESTA REAL ──────
+// A diferencia de enviarComandoBT (que solo garantiza que la escritura
+// salió bien), esto además espera a que el Nano responda algo concreto;
+// si no responde en 1.5s, reintenta solo, sin que el usuario tenga que
+// volver a tocar el botón.
+async function enviarComandoCalConRespuesta(cmd, calEl, textoBase){
+  const intentosMax=5;
+  for(let intento=1; intento<=intentosMax; intento++){
+    calEl.textContent = textoBase + (intento>1 ? ' (reintentando, '+intento+'/'+intentosMax+')...' : '...');
+    const antes=Date.now();
+    const ok=await enviarComandoBT(cmd, calEl);
+    if(!ok) return;   // enviarComandoBT ya mostró el motivo del error
+    const llegoRespuesta=await new Promise(resolve=>{
+      const chequeo=setInterval(()=>{
+        if(calRespuestaTs>=antes){ clearInterval(chequeo); resolve(true); }
+      },100);
+      setTimeout(()=>{ clearInterval(chequeo); resolve(false); },1500);
+    });
+    if(llegoRespuesta) return;   // ✅ calEl ya se actualizó con la respuesta real del Nano
+  }
+  calEl.textContent='❌ La balanza no respondió después de varios intentos. Revisá que esté conectada y probá de nuevo.';
+}
+
 async function calAjustarCero(){
   if(!btChar)return;
   if(!confirm('¿La tolva está completamente VACÍA en este momento?\n\nEsto va a quedar guardado como el nuevo cero permanente en el Nano.'))return;
   const calEl=document.getElementById('cal-estado');
-  calEl.textContent='Ajustando cero...';
-  await enviarComandoBT('Z\n', calEl);
+  await enviarComandoCalConRespuesta('Z\n', calEl, 'Ajustando cero');
 }
 
 async function calAjustarFactor(){
@@ -1163,8 +1192,7 @@ async function calAjustarFactor(){
   const num=parseFloat(document.getElementById('cal-peso-ref').value);
   if(!num||num<=0){alert('Ingresá el peso de referencia en kg (ej: 1.500).');return;}
   const calEl=document.getElementById('cal-estado');
-  calEl.textContent='Ajustando factor con '+num+' kg de referencia...';
-  await enviarComandoBT('C'+num+'\n', calEl);
+  await enviarComandoCalConRespuesta('C'+num+'\n', calEl, 'Ajustando factor con '+num+' kg de referencia');
 }
 
 async function calAjustarFactorManual(){
@@ -1173,15 +1201,13 @@ async function calAjustarFactorManual(){
   if(!num||num===0){alert('Ingresá el valor exacto del factor nuevo.');return;}
   if(!confirm('¿Aplicar '+num+' como factor de calibración, reemplazando el actual?'))return;
   const calEl=document.getElementById('cal-estado');
-  calEl.textContent='Aplicando factor manual: '+num+'...';
-  await enviarComandoBT('F'+num+'\n', calEl);
+  await enviarComandoCalConRespuesta('F'+num+'\n', calEl, 'Aplicando factor manual: '+num);
 }
 
 async function calConsultarEstado(){
   if(!btChar)return;
   const calEl=document.getElementById('cal-estado');
-  calEl.textContent='Consultando...';
-  await enviarComandoBT('R\n', calEl);
+  await enviarComandoCalConRespuesta('R\n', calEl, 'Consultando');
 }
 
 // ── ENSAYO DE SEMILLA ─────────────────────────────────
