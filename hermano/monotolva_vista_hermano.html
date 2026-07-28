@@ -108,6 +108,10 @@ h1{font-size:19px;font-weight:800;margin-bottom:0.25rem;display:flex;align-items
     <div class="card-title"><i class="ti ti-history"></i> Historial de ensayos</div>
     <div id="lista-ensayos"><div class="vacio">Sin datos todavía...</div></div>
   </div>
+
+  <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
+    Monotolva — versión 2026-07-27
+  </div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -217,15 +221,32 @@ db.ref('historial').on('value', snap=>{
 function renderCamiones(lista){
   const cont=document.getElementById('lista-camiones');
   if(!lista.length){cont.innerHTML='<div class="vacio">Sin datos todavía...</div>';return;}
-  cont.innerHTML=lista.slice().reverse().map(c=>{
+  const ordenada=lista.slice().reverse();
+  cont.innerHTML=ordenada.map((c,i)=>{
     const diff=(c.cargado||0)-(c.cupo||0);
     const ok=Math.abs(diff)<200;
-    return `<div class="hist-row" style="flex-direction:column;align-items:stretch;gap:4px">
+    const descargas=(c.descargas||[]);
+    const filasDescargas=descargas.length ? descargas.map(d=>`
+        <div class="hist-row" style="padding-left:4px">
+          <span style="color:var(--muted)">#${d.num} · ${d.fecha||''} ${d.hora||''}${d.lote?' · <span style="color:var(--yellow)">'+d.lote+'</span>':''}</span>
+          <span style="font-weight:700">${fmt(Math.round(d.kg))} kg</span>
+        </div>`).join('') : '<div class="vacio" style="padding:8px 0">Sin descargas registradas</div>';
+    return `<div class="hist-row" style="flex-direction:column;align-items:stretch;gap:4px;cursor:pointer" onclick="toggleDetalle('cam-${i}')">
       <div style="display:flex;justify-content:space-between">
-        <strong>${c.patente||'—'}</strong>
+        <strong>${c.patente||'—'} <i class="ti ti-chevron-down" style="font-size:13px;color:var(--muted)"></i></strong>
         <span class="pill ${ok?'verde':'azul'}">${diff>=0?'+':''}${fmt(Math.round(diff))} kg</span>
       </div>
       <div style="font-size:12px;color:var(--muted)">${c.producto||'—'} · ${c.fecha||'—'} · ${fmt(Math.round(c.cargado||0))} / ${fmt(c.cupo||0)} kg · Carta ${c.carta||'—'}${c.nombreDe?' · '+c.nombreDe:''}</div>
+      <div id="cam-${i}" style="display:none;margin-top:6px;padding-top:8px;border-top:1px solid var(--border)" onclick="event.stopPropagation()">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;line-height:1.6">
+          <b style="color:var(--text)">Chofer:</b> ${c.chofer||'—'}<br>
+          <b style="color:var(--text)">Empresa:</b> ${c.empresa||'—'}<br>
+          <b style="color:var(--text)">Destino:</b> ${c.destino||'—'}<br>
+          <b style="color:var(--text)">Lote(s):</b> ${c.lote||'—'}
+        </div>
+        <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">Descargas registradas</div>
+        ${filasDescargas}
+      </div>
     </div>`;
   }).join('');
 }
@@ -233,14 +254,32 @@ function renderCamiones(lista){
 function renderSilobolsas(lista){
   const cont=document.getElementById('lista-silobolsas');
   if(!lista.length){cont.innerHTML='<div class="vacio">Sin datos todavía...</div>';return;}
-  cont.innerHTML=lista.slice().reverse().map(s=>`
-    <div class="hist-row" style="flex-direction:column;align-items:stretch;gap:4px">
+  const ordenada=lista.slice().reverse();
+  cont.innerHTML=ordenada.map((s,i)=>{
+    const aportes=(s.aportes||[]);
+    const filasAportes=aportes.length ? aportes.map(a=>`
+        <div class="hist-row" style="padding-left:4px">
+          <span style="color:var(--muted)">#${a.num} · ${a.hora||''}${a.lote?' · <span style="color:var(--yellow)">'+a.lote+'</span>':''}</span>
+          <span style="font-weight:700">${fmt(Math.round(a.kg))} kg</span>
+        </div>`).join('') : '<div class="vacio" style="padding:8px 0">Sin pesadas registradas</div>';
+    return `<div class="hist-row" style="flex-direction:column;align-items:stretch;gap:4px;cursor:pointer" onclick="toggleDetalle('sb-${i}')">
       <div style="display:flex;justify-content:space-between">
-        <strong>Silobolsa ${s.numero||'—'}</strong>
+        <strong>Silobolsa ${s.numero||'—'} <i class="ti ti-chevron-down" style="font-size:13px;color:var(--muted)"></i></strong>
         <span class="pill gris">${fmt(Math.round(s.total||0))} kg</span>
       </div>
       <div style="font-size:12px;color:var(--muted)">${s.producto||'—'} · Lote inicial: ${s.lote||'—'}</div>
-    </div>`).join('');
+      <div id="sb-${i}" style="display:none;margin-top:6px;padding-top:8px;border-top:1px solid var(--border)" onclick="event.stopPropagation()">
+        <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">Pesadas registradas</div>
+        ${filasAportes}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleDetalle(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.style.display = el.style.display==='none' ? 'block' : 'none';
 }
 
 function renderEnsayos(lista){
