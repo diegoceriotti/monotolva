@@ -216,6 +216,50 @@ button:disabled{opacity:0.35;cursor:not-allowed}
             <div style="font-size:13px;color:var(--muted)" id="lbl-producto">—</div>
           </div>
         </div>
+        <button onclick="toggleEditarCamion()" id="btn-editar-camion" style="width:auto;padding:6px 12px;font-size:12px;margin-bottom:10px">
+          <i class="ti ti-pencil"></i> Editar datos del camión / carta de porte
+        </button>
+        <div id="panel-editar-camion" style="display:none;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
+          <div class="grid2" style="margin-bottom:10px">
+            <div><label>Patente / dominio</label><input id="edit-patente" style="text-transform:uppercase"></div>
+            <div><label>Chofer</label><input id="edit-chofer"></div>
+          </div>
+          <div class="grid2" style="margin-bottom:10px">
+            <div><label>Empresa / transporte</label><input id="edit-empresa"></div>
+            <div><label>N° carta de porte</label><input id="edit-carta"></div>
+          </div>
+          <div class="grid2" style="margin-bottom:10px">
+            <div>
+              <label>Producto</label>
+              <select id="edit-producto">
+                <option>Soja</option><option>Maíz</option><option>Trigo</option>
+                <option>Girasol</option><option>Sorgo</option><option>Otro</option>
+              </select>
+            </div>
+            <div>
+              <label>Destino</label>
+              <select id="edit-destino">
+                <option>Acopio</option><option>Puerto</option><option>Otro</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid2" style="margin-bottom:10px">
+            <div><label>Lote (de dónde sale)</label><input id="edit-lote"></div>
+            <div><label>Kg a cargar (cupo total)</label><input id="edit-kg-cupo" type="number" min="100" step="100"></div>
+          </div>
+          <div class="grid2" style="margin-bottom:10px">
+            <div>
+              <label>A nombre de</label>
+              <select id="edit-nombre-de">
+                <option>Diego</option><option>Hernán</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid2">
+            <button onclick="toggleEditarCamion()" style="background:transparent"><i class="ti ti-x"></i> Cancelar</button>
+            <button class="primary" onclick="guardarEdicionCamion()"><i class="ti ti-check"></i> Guardar cambios</button>
+          </div>
+        </div>
         <hr class="sep">
         <div class="grid3">
           <div class="metric">
@@ -539,7 +583,7 @@ button:disabled{opacity:0.35;cursor:not-allowed}
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-07-28
+    Monotolva — versión 2026-07-29
   </div>
 
 </div>
@@ -1533,6 +1577,48 @@ function cancelarSilobolsa(){
 }
 
 // ── CARGA ─────────────────────────────────────────────
+function toggleEditarCamion(){
+  const panel=document.getElementById('panel-editar-camion');
+  const abrir = panel.style.display==='none';
+  if(abrir){
+    document.getElementById('edit-patente').value=estado.patente||'';
+    document.getElementById('edit-chofer').value=estado.chofer||'';
+    document.getElementById('edit-empresa').value=estado.empresa||'';
+    document.getElementById('edit-carta').value=estado.carta||'';
+    document.getElementById('edit-producto').value=estado.producto||'Soja';
+    document.getElementById('edit-destino').value=estado.destino||'Acopio';
+    document.getElementById('edit-lote').value=estado.lote||'';
+    document.getElementById('edit-kg-cupo').value=estado.cupo||'';
+    document.getElementById('edit-nombre-de').value=estado.nombreDe||'Diego';
+  }
+  panel.style.display = abrir ? 'block' : 'none';
+}
+
+function guardarEdicionCamion(){
+  const patente=document.getElementById('edit-patente').value.trim();
+  const cupoNuevo=parseFloat(document.getElementById('edit-kg-cupo').value);
+  if(!patente){alert('La patente no puede quedar vacía.');return;}
+  if(!cupoNuevo||cupoNuevo<100){alert('El cupo tiene que ser un número válido (mínimo 100 kg).');return;}
+  if(cupoNuevo<estado.cargado && !confirm('El nuevo cupo ('+fmt(cupoNuevo)+' kg) es menor a lo ya cargado ('+fmt(Math.round(estado.cargado))+' kg). ¿Confirmás igual?'))return;
+  estado.patente=patente.toUpperCase();
+  estado.chofer=document.getElementById('edit-chofer').value||'Sin datos';
+  estado.empresa=document.getElementById('edit-empresa').value||'—';
+  estado.carta=document.getElementById('edit-carta').value||'—';
+  estado.producto=document.getElementById('edit-producto').value;
+  estado.destino=document.getElementById('edit-destino').value;
+  estado.lote=document.getElementById('edit-lote').value;
+  estado.cupo=cupoNuevo;
+  estado.nombreDe=document.getElementById('edit-nombre-de').value;
+  document.getElementById('lbl-patente').textContent=estado.patente+' — '+estado.empresa;
+  document.getElementById('lbl-chofer').textContent=estado.chofer+(estado.nombreDe?' · A nombre de '+estado.nombreDe:'');
+  document.getElementById('lbl-carta').textContent='Carta N° '+estado.carta;
+  document.getElementById('lbl-producto').textContent=estado.producto+' → '+estado.destino+' · Lote inicial: '+(estado.lote||'—');
+  document.getElementById('m-cupo').textContent=fmt(estado.cupo);
+  actualizarMetrics();
+  toggleEditarCamion();
+  guardarSesionActiva();
+}
+
 function iniciarCarga(){
   faltaActualCamion=null;
   descargaCamionEnCurso=false;
