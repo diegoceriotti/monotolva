@@ -110,7 +110,7 @@ h1{font-size:19px;font-weight:800;margin-bottom:0.25rem;display:flex;align-items
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-07-28
+    Monotolva — versión 2026-07-29
   </div>
 </div>
 
@@ -242,7 +242,8 @@ function renderCamiones(lista){
           <b style="color:var(--text)">Chofer:</b> ${c.chofer||'—'}<br>
           <b style="color:var(--text)">Empresa:</b> ${c.empresa||'—'}<br>
           <b style="color:var(--text)">Destino:</b> ${c.destino||'—'}<br>
-          <b style="color:var(--text)">Lote(s):</b> ${c.lote||'—'}
+          <b style="color:var(--text)">Lote(s):</b> ${c.lote||'—'}<br>
+          <b style="color:var(--text)">Total cargado:</b> ${fmt(Math.round(c.cargado||0))} kg (cupo ${fmt(c.cupo||0)} kg)
         </div>
         <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">Descargas registradas</div>
         ${filasDescargas}
