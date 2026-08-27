@@ -87,6 +87,20 @@ h1{font-size:19px;font-weight:800;margin-bottom:0.25rem;display:flex;align-items
     <div id="vivo-contenido"><div class="vacio">Cargando...</div></div>
   </div>
 
+  <!-- TOTALES DEL PERÍODO — resumen agregado, igual que la pestaña Resumen de la tablet -->
+  <div class="card" id="card-totales">
+    <div class="card-title"><i class="ti ti-chart-bar"></i> Totales</div>
+    <div class="grid3" style="margin-bottom:12px">
+      <div class="metric"><div class="metric-label">Camiones</div><div class="metric-val" id="tot-camiones" style="font-size:20px">—</div></div>
+      <div class="metric"><div class="metric-label">Kg totales</div><div class="metric-val" id="tot-kg" style="font-size:20px">—</div></div>
+      <div class="metric"><div class="metric-label">Ensayos</div><div class="metric-val" id="tot-ensayos" style="font-size:20px">—</div></div>
+    </div>
+    <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px">Por destino</div>
+    <div id="tot-subtotales-dest" style="margin-bottom:12px"></div>
+    <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px">Por quién cargó</div>
+    <div id="tot-subtotales-nombre"></div>
+  </div>
+
   <!-- HISTORIAL -->
   <div class="nav-tabs">
     <button class="nav-tab activo" id="tab-camiones" onclick="cambiarTab('camiones')"><i class="ti ti-truck"></i> Camiones</button>
@@ -110,7 +124,7 @@ h1{font-size:19px;font-weight:800;margin-bottom:0.25rem;display:flex;align-items
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-07-29b
+    Monotolva — versión 2026-08-09
   </div>
 </div>
 
@@ -130,6 +144,18 @@ firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
 function fmt(n){return Number(n||0).toLocaleString('es-AR')}
+
+const DESTINOS_CAMION=['Acopio','Puerto','Otro'];
+const DEST_COLOR={
+  'Acopio': {bg:'#1c2c3c',txt:'#7cb2e0'},
+  'Puerto': {bg:'#17301f',txt:'#7fd39c'},
+  'Otro':   {bg:'#2a2a2a',txt:'#c9c9c9'}
+};
+const NOMBRES_DE=['Diego','Hernán'];
+const NOMBRE_COLOR={
+  'Diego': {bg:'#3a2f10',txt:'#e0b84d'},
+  'Hernán':{bg:'#132c33',txt:'#6fc2d6'}
+};
 
 // ── Indicador de conexión ───────────────────────────────
 db.ref('.info/connected').on('value', snap=>{
@@ -216,7 +242,33 @@ db.ref('historial').on('value', snap=>{
   renderCamiones(data.camiones||[]);
   renderSilobolsas(data.silobolsas||[]);
   renderEnsayos(data.ensayos||[]);
+  renderTotales(data.camiones||[], data.ensayos||[]);
 });
+
+function renderTotales(camiones, ensayos){
+  document.getElementById('tot-camiones').textContent=camiones.length;
+  document.getElementById('tot-ensayos').textContent=ensayos.length;
+  const totalKg=camiones.reduce((s,c)=>s+(c.cargado||0),0);
+  document.getElementById('tot-kg').textContent=fmt(Math.round(totalKg));
+
+  const totDest={};DESTINOS_CAMION.forEach(d=>totDest[d]=0);
+  camiones.forEach(c=>{if(c.destino && totDest[c.destino]!==undefined)totDest[c.destino]+=(c.cargado||0);});
+  const activosDest=DESTINOS_CAMION.filter(d=>totDest[d]>0);
+  document.getElementById('tot-subtotales-dest').innerHTML = activosDest.length ? activosDest.map(k=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-radius:8px;margin-bottom:5px;background:${DEST_COLOR[k].bg}">
+      <span style="font-size:12px;font-weight:700;color:${DEST_COLOR[k].txt};text-transform:uppercase;letter-spacing:0.3px">${k}</span>
+      <span style="font-size:14px;font-weight:800;color:${DEST_COLOR[k].txt}">${fmt(Math.round(totDest[k]))} kg</span>
+    </div>`).join('') : '<div class="vacio" style="padding:6px 0">Sin datos aún...</div>';
+
+  const totNombre={};NOMBRES_DE.forEach(n=>totNombre[n]=0);
+  camiones.forEach(c=>{if(c.nombreDe && totNombre[c.nombreDe]!==undefined)totNombre[c.nombreDe]+=(c.cargado||0);});
+  const activosNombre=NOMBRES_DE.filter(n=>totNombre[n]>0);
+  document.getElementById('tot-subtotales-nombre').innerHTML = activosNombre.length ? activosNombre.map(k=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-radius:8px;margin-bottom:5px;background:${NOMBRE_COLOR[k].bg}">
+      <span style="font-size:12px;font-weight:700;color:${NOMBRE_COLOR[k].txt};text-transform:uppercase;letter-spacing:0.3px">${k}</span>
+      <span style="font-size:14px;font-weight:800;color:${NOMBRE_COLOR[k].txt}">${fmt(Math.round(totNombre[k]))} kg</span>
+    </div>`).join('') : '<div class="vacio" style="padding:6px 0">Sin datos aún...</div>';
+}
 
 function renderCamiones(lista){
   const cont=document.getElementById('lista-camiones');
