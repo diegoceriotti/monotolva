@@ -100,17 +100,6 @@ button:disabled{opacity:0.35;cursor:not-allowed}
 <div class="wrap">
   <h1><i class="ti ti-tractor"></i> Sistema Monotolva</h1>
 
-  <!-- BANNER: aparece solo si el archivo está "vacío" (sin datos guardados) -->
-  <div id="banner-restaurar" style="display:none;background:var(--panel-2);border:1.5px solid var(--yellow);border-radius:10px;padding:12px 14px;margin-bottom:1rem">
-    <div style="font-size:13px;font-weight:700;margin-bottom:4px">¿Tenías datos guardados en otra versión de la app?</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Este archivo no tiene historial todavía. Si tenés un backup de una versión anterior, restauralo ahora para no perder nada.</div>
-    <div class="grid2-btn">
-      <button class="primary" onclick="document.getElementById('input-restaurar-backup-banner').click()"><i class="ti ti-upload"></i> Restaurar backup</button>
-      <button onclick="cerrarBannerRestaurar()"><i class="ti ti-x"></i> No, empezar de cero</button>
-    </div>
-    <input type="file" id="input-restaurar-backup-banner" accept="application/json,.json" style="display:none" onchange="restaurarBackup(event)">
-  </div>
-
   <!-- BANNER: recordatorio de backup, aparece después de varios camiones/silobolsas cerrados -->
   <div id="banner-backup-reminder" style="display:none;background:var(--panel-2);border:1.5px solid var(--orange);border-radius:10px;padding:12px 14px;margin-bottom:1rem">
     <div style="font-size:13px;font-weight:700;margin-bottom:4px"><i class="ti ti-alert-triangle"></i> Hace rato que no hacés un backup</div>
@@ -224,6 +213,9 @@ button:disabled{opacity:0.35;cursor:not-allowed}
         </div>
         <button onclick="toggleEditarCamion()" id="btn-editar-camion" style="width:auto;padding:6px 12px;font-size:12px;margin-bottom:10px">
           <i class="ti ti-pencil"></i> Editar datos del camión / carta de porte
+        </button>
+        <button onclick="toggleCompartido()" id="btn-compartido" style="display:none;width:auto;padding:6px 12px;font-size:12px;margin-bottom:10px;border:1px solid var(--border)">
+          <i class="ti ti-link-off"></i> Ver combinado con la otra tolva
         </button>
         <div id="panel-editar-camion" style="display:none;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
           <div class="grid2" style="margin-bottom:10px">
@@ -669,7 +661,7 @@ button:disabled{opacity:0.35;cursor:not-allowed}
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-08-05b
+    Monotolva — versión 2026-08-27b
   </div>
 
 </div>
@@ -678,6 +670,11 @@ button:disabled{opacity:0.35;cursor:not-allowed}
 <script>
 let estado={cupo:0,cargado:0,descargas:[],patente:'',chofer:'',carta:'',producto:'',empresa:'',fecha:'',nombreDe:''};
 let modoActual='camion';
+
+// ── Camión compartido entre dos tolvas (misma patente) ──────────────
+let compartidoActivo=false;          // si estamos combinando el total con la otra tolva ahora mismo
+let compartidoRef=null;              // referencia de Firebase escuchada en vivo
+let cargadoCombinado=0;              // total combinado de las dos tolvas (lo que se muestra/usa para la alarma)
 let sensorTuboActivo = localStorage.getItem('monotolva_sensor_tubo_activo') !== '0';   // ON por defecto
 let btDevice=null,btChar=null,btBuffer='',pesoBT=null;
 
@@ -769,7 +766,6 @@ function fmt(n){return Number(n).toLocaleString('es-AR')}
 // ── PERSISTENCIA LOCAL (memoria del navegador/tablet) ─
 const LS_KEY='monotolva_resumen_dia';
 const LS_KEY_SESION='monotolva_sesion_activa';
-const LS_KEY_EMPEZAR_CERO='monotolva_empezar_cero_elegido';
 function hoyStr(){return new Date().toLocaleDateString('es-AR')}
 
 function guardarLocal(){
@@ -787,13 +783,10 @@ function cargarLocal(){
   try{
     const raw=localStorage.getItem(LS_KEY);
     if(!raw){
-      // No hay datos guardados en este archivo/navegador todavía.
-      // Puede ser la primera vez, o una versión nueva del archivo.
-      // Si ya eligió antes "empezar de cero", no volvemos a preguntar.
-      if(localStorage.getItem(LS_KEY_EMPEZAR_CERO)!=='1'){
-        const banner=document.getElementById('banner-restaurar');
-        if(banner)banner.style.display='block';
-      }
+      // No hay datos guardados en este archivo/navegador todavía (primera vez,
+      // o versión nueva del archivo). Ya no molestamos con un cartel automático
+      // — si hace falta restaurar un backup, está disponible en la pestaña
+      // Resumen ("Restaurar backup") cuando el usuario lo necesite.
       return;
     }
     const data=JSON.parse(raw);
@@ -801,12 +794,6 @@ function cargarLocal(){
     ensayosGuardados=data.ensayosGuardados||[];
     silobolsasCerradas=data.silobolsasCerradas||[];
   }catch(e){console.warn('No se pudo leer del dispositivo:',e);}
-}
-
-function cerrarBannerRestaurar(){
-  try{ localStorage.setItem(LS_KEY_EMPEZAR_CERO,'1'); }catch(e){}
-  const banner=document.getElementById('banner-restaurar');
-  if(banner)banner.style.display='none';
 }
 
 // ── SESIÓN ACTIVA (camión/silobolsa EN CURSO, sin cerrar) ──
@@ -845,6 +832,7 @@ function restaurarSesionActiva(){
       renderHistorial();
       document.getElementById('pantalla-form').style.display='none';
       document.getElementById('pantalla-carga').style.display='block';
+      activarCompartido(estado.patente);
     }
 
     if(data.estadoBolsa){
@@ -946,8 +934,6 @@ function restaurarBackup(event){
         restaurarSesionActiva();
       }
 
-      const banner=document.getElementById('banner-restaurar');
-      if(banner)banner.style.display='none';
       renderEnsayos();
       renderResumenDia();
       alert('Backup restaurado con éxito: '+cargasDelDia.length+' camiones, '+silobolsasCerradas.length+' silobolsas, '+ensayosGuardados.length+' ensayos.');
@@ -1882,6 +1868,59 @@ function guardarEdicionCamion(){
   guardarSesionActiva();
 }
 
+// ── Combinar total con la otra tolva (misma patente) ────────────────
+function activarCompartido(patente, esperandoExistente){
+  if(!fbDb)return;
+  desactivarCompartido();  // por si ya había uno escuchado antes
+  compartidoActivo=true;
+  compartidoRef=fbDb.ref('compartidos/'+patente);
+  compartidoRef.once('value').then(snap=>{
+    const d=snap.val();
+    if(!d || !d.cupo){
+      // Nadie inició esta patente todavía en la nube: la creamos con lo que ya tenemos.
+      compartidoRef.set({cupo:estado.cupo, cargado:estado.cargado, actualizado:Date.now()});
+    }
+    // Escuchamos en vivo para siempre reflejar la suma de las dos tolvas.
+    compartidoRef.on('value', snap2=>{
+      const d2=snap2.val();
+      cargadoCombinado = d2 ? (d2.cargado||0) : estado.cargado;
+      actualizarMetrics();
+    });
+  }).catch(e=>console.warn('No se pudo activar el combinado con la otra tolva:',e));
+  actualizarBotonCompartido();
+}
+
+function desactivarCompartido(){
+  if(compartidoRef)compartidoRef.off();
+  compartidoRef=null;
+  compartidoActivo=false;
+  cargadoCombinado=estado.cargado;
+  actualizarBotonCompartido();
+}
+
+function toggleCompartido(){
+  if(compartidoActivo){
+    if(!confirm('¿Dejar de combinar el total con la otra tolva? Vas a volver a ver solo lo que cargó esta tolva.'))return;
+    desactivarCompartido();
+  }else{
+    if(!estado.patente){return;}
+    activarCompartido(estado.patente);
+  }
+  actualizarMetrics();
+}
+
+function actualizarBotonCompartido(){
+  const btn=document.getElementById('btn-compartido');
+  if(!btn)return;
+  btn.style.display = estado.patente ? 'flex' : 'none';
+  btn.innerHTML = compartidoActivo
+    ? '<i class="ti ti-link"></i> Combinado con otra tolva (mismo camión) — tocar para separar'
+    : '<i class="ti ti-link-off"></i> Ver combinado con la otra tolva';
+  btn.style.background = compartidoActivo ? 'rgba(29,158,117,0.15)' : 'transparent';
+  btn.style.borderColor = compartidoActivo ? 'var(--green)' : 'var(--border)';
+  btn.style.color = compartidoActivo ? 'var(--green)' : 'var(--muted)';
+}
+
 function iniciarCarga(){
   faltaActualCamion=null;
   descargaCamionEnCurso=false;
@@ -1911,6 +1950,7 @@ function iniciarCarga(){
   document.getElementById('pantalla-form').style.display='none';
   document.getElementById('pantalla-carga').style.display='block';
   guardarSesionActiva();
+  activarCompartido(estado.patente);
 }
 
 function iniciarDescargaCamion(){
@@ -1967,11 +2007,17 @@ function finDescargaCamion(){
   const hora=ahora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
   const loteActual=document.getElementById('lote-actual-camion').value.trim()||estado.lote||'—';
   estado.descargas.push({kg:real,hora,fecha,num:estado.descargas.length+1,lote:loteActual});
+  if(compartidoActivo && fbDb && compartidoRef){
+    compartidoRef.update({
+      cargado: firebase.database.ServerValue.increment(real),
+      actualizado: Date.now()
+    }).catch(e=>console.warn('No se pudo sumar al total combinado:',e));
+  }
   actualizarMetrics();
   renderHistorial();
   guardarSesionActiva();
   exportarBackup(true);
-  if(estado.cargado>=estado.cupo)completarCarga();
+  if((compartidoActivo?cargadoCombinado:estado.cargado)>=estado.cupo)completarCarga();
 }
 
 function editarDescarga(num){
@@ -1998,7 +2044,7 @@ function cancelarDescargaCamion(){
 }
 
 function actualizarMetrics(){
-  const c=estado.cargado,q=estado.cupo,f=Math.max(0,q-c);
+  const c=compartidoActivo?cargadoCombinado:estado.cargado,q=estado.cupo,f=Math.max(0,q-c);
   const pct=Math.min(100,Math.round(c/q*100));
   document.getElementById('m-cargado').textContent=fmt(Math.round(c));
   document.getElementById('m-falta').textContent=fmt(Math.round(f));
@@ -2036,6 +2082,7 @@ function renderHistorial(){
 function completarCarga(){
   faltaActualCamion=null;
   descargaCamionEnCurso=false;
+  desactivarCompartido();
   const fecha=estado.fecha?new Date(estado.fecha+'T12:00:00').toLocaleDateString('es-AR'):'—';
   document.getElementById('cierre-subtitulo').textContent=estado.patente+' — '+estado.producto+' — '+fecha;
   const diff=estado.cargado-estado.cupo;
@@ -2122,6 +2169,7 @@ function nuevoCamion(){
   faltaActualCamion=null;
   descargaCamionInicio=null;
   descargaCamionEnCurso=false;
+  desactivarCompartido();
   document.getElementById('btn-inicio-descarga-camion').disabled=false;
   document.getElementById('btn-fin-descarga-camion').disabled=true;
   document.getElementById('camion-descarga-live').style.display='none';
