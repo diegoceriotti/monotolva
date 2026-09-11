@@ -661,7 +661,7 @@ button:disabled{opacity:0.35;cursor:not-allowed}
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-08-28
+    Monotolva — versión 2026-08-28b
   </div>
 
 </div>
@@ -701,40 +701,42 @@ try{
 
 function mergearPorId(local, remoto){
   if(!remoto || !remoto.length)return local;
-  const remotoPorId={};
-  remoto.forEach(r=>{ if(r && r.id) remotoPorId[r.id]=r; });
-  return local.map((l,idx)=>{
-    if(l.id){
-      const r=remotoPorId[l.id];
-      if(r && (r.ultimaEdicion||0) > (l.ultimaEdicion||0)) return r;
-      return l;
+  const resultado=local.slice();
+  const idsLocales=new Set(resultado.filter(r=>r && r.id).map(r=>r.id));
+  remoto.forEach((r,idx)=>{
+    if(!r)return;
+    if(r.id){
+      if(idsLocales.has(r.id)){
+        // Ya lo tenemos: adoptamos la versión de la nube si es más nueva
+        // (por ejemplo una edición hecha desde la app del hermano).
+        const i=resultado.findIndex(l=>l && l.id===r.id);
+        if(i>=0 && (r.ultimaEdicion||0) > (resultado[i].ultimaEdicion||0)) resultado[i]=r;
+      }else{
+        // No lo teníamos todavía en este dispositivo (ej: recién reinstalado,
+        // o creado desde otro lado) — lo traemos.
+        resultado.push(r);
+      }
+    }else{
+      // Registro viejo sin id: comparamos por posición.
+      if(resultado[idx]){
+        if((r.ultimaEdicion||0) > (resultado[idx].ultimaEdicion||0)) resultado[idx]=r;
+      }else{
+        resultado.push(r);
+      }
     }
-    // Registro viejo sin id: si el mismo lugar en la nube tiene una edición
-    // más nueva (por ejemplo hecha desde la app del hermano), la adoptamos.
-    const r=remoto[idx];
-    if(r && (r.ultimaEdicion||0) > (l.ultimaEdicion||0)) return r;
-    return l;
   });
+  return resultado;
 }
 
 function syncFirebaseHistorial(){
   if(!fbDb)return;
   try{
-    // Salvaguarda: nunca subir un historial más chico que el que ya hay en
-    // la nube — evita que un dispositivo que quedó "en blanco" (por ej. al
-    // borrar datos del sitio en Chrome) termine borrando sin querer todo lo
-    // que ya estaba sincronizado.
     fbDb.ref('historial').once('value').then(snap=>{
       const actual=snap.val()||{};
-      const totalActual=(actual.camiones?.length||0)+(actual.silobolsas?.length||0)+(actual.ensayos?.length||0);
-      const totalNuevo=cargasDelDia.length+silobolsasCerradas.length+ensayosGuardados.length;
-      if(totalNuevo<totalActual){
-        console.warn('Sync de historial CANCELADO: este dispositivo tiene menos datos ('+totalNuevo+') que la nube ('+totalActual+'). No se sobrescribe para evitar pérdida de datos.');
-        return;
-      }
-      // Antes de subir, adoptamos cualquier edición hecha desde la nube (ej: la
-      // app del hermano) que sea más nueva que lo que tenemos localmente —
-      // así no se pisa una corrección hecha de noche desde la casilla.
+
+      // Primero traemos de la nube cualquier registro que este dispositivo
+      // no tenga todavía (ej: recién reinstalado) o cualquier edición más
+      // nueva hecha desde otro lado (ej: la app del hermano, de noche).
       cargasDelDia=mergearPorId(cargasDelDia, actual.camiones);
       silobolsasCerradas=mergearPorId(silobolsasCerradas, actual.silobolsas);
       ensayosGuardados=mergearPorId(ensayosGuardados, actual.ensayos);
@@ -742,6 +744,14 @@ function syncFirebaseHistorial(){
       renderResumenDia();
       renderEnsayos();
 
+      // Salvaguarda: recién ahora, con lo de la nube ya incorporado, subimos
+      // — y solo si no perdemos nada (por las dudas de algún caso raro).
+      const totalActual=(actual.camiones?.length||0)+(actual.silobolsas?.length||0)+(actual.ensayos?.length||0);
+      const totalNuevo=cargasDelDia.length+silobolsasCerradas.length+ensayosGuardados.length;
+      if(totalNuevo<totalActual){
+        console.warn('Sync de historial CANCELADO: este dispositivo tiene menos datos ('+totalNuevo+') que la nube ('+totalActual+'). No se sobrescribe para evitar pérdida de datos.');
+        return;
+      }
       fbDb.ref('historial').set({
         camiones:cargasDelDia,
         silobolsas:silobolsasCerradas,
