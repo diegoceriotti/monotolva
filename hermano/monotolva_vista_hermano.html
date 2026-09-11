@@ -63,6 +63,12 @@ h1{font-size:19px;font-weight:800;margin-bottom:0.25rem;display:flex;align-items
 .live-dot.on{background:var(--green);animation:pulso 1.2s infinite alternate}
 @keyframes pulso{to{opacity:0.35}}
 .vacio{font-size:13px;color:var(--muted);text-align:center;padding:1.5rem 0}
+label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px}
+input,select{width:100%;padding:9px 10px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);font-size:14px;font-family:inherit}
+input:focus,select:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(62,142,90,0.15)}
+button{padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;width:100%;font-family:inherit}
+button.primary{background:var(--green);color:#fff;border-color:var(--green)}
+.edit-btn{width:auto;padding:4px 7px;font-size:12px;background:transparent;border:1px solid var(--border);flex-shrink:0}
 @media(max-width:400px){.grid3,.grid2{grid-template-columns:1fr}}
 </style>
 </head>
@@ -110,21 +116,80 @@ h1{font-size:19px;font-weight:800;margin-bottom:0.25rem;display:flex;align-items
 
   <div class="card" id="panel-camiones">
     <div class="card-title"><i class="ti ti-history"></i> Historial de camiones</div>
+    <div id="panel-editar-camion" style="display:none;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:10px">Editando camión</div>
+      <div class="grid2" style="margin-bottom:10px">
+        <div><label>Patente / dominio</label><input id="edit-c-patente" style="text-transform:uppercase"></div>
+        <div><label>Chofer</label><input id="edit-c-chofer"></div>
+      </div>
+      <div class="grid2" style="margin-bottom:10px">
+        <div><label>Empresa / transporte</label><input id="edit-c-empresa"></div>
+        <div><label>N° carta de porte</label><input id="edit-c-carta"></div>
+      </div>
+      <div class="grid2" style="margin-bottom:10px">
+        <div>
+          <label>Producto</label>
+          <select id="edit-c-producto"><option>Soja</option><option>Maíz</option><option>Trigo</option><option>Girasol</option><option>Sorgo</option><option>Otro</option></select>
+        </div>
+        <div>
+          <label>Destino</label>
+          <select id="edit-c-destino"><option>Acopio</option><option>Puerto</option><option>Otro</option></select>
+        </div>
+      </div>
+      <div class="grid2" style="margin-bottom:10px">
+        <div><label>Lote</label><input id="edit-c-lote"></div>
+        <div><label>Cupo (carta de porte)</label><input id="edit-c-cupo" type="number" min="100" step="100"></div>
+      </div>
+      <div class="grid2" style="margin-bottom:10px">
+        <div><label>A nombre de</label><select id="edit-c-nombrede"><option>Diego</option><option>Hernán</option></select></div>
+      </div>
+      <div class="grid2">
+        <button onclick="cerrarEdicionCamion()" style="background:transparent"><i class="ti ti-x"></i> Cancelar</button>
+        <button class="primary" onclick="guardarEdicionCamion()"><i class="ti ti-check"></i> Guardar</button>
+      </div>
+    </div>
     <div id="lista-camiones"><div class="vacio">Sin datos todavía...</div></div>
   </div>
 
   <div class="card" id="panel-silobolsas" style="display:none">
     <div class="card-title"><i class="ti ti-history"></i> Historial de silobolsas</div>
+    <div id="panel-editar-silobolsa" style="display:none;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:10px">Editando silobolsa</div>
+      <div class="grid2" style="margin-bottom:10px">
+        <div><label>Número</label><input id="edit-s-numero"></div>
+        <div>
+          <label>Producto</label>
+          <select id="edit-s-producto"><option>Soja</option><option>Maíz</option><option>Trigo</option><option>Girasol</option><option>Sorgo</option><option>Otro</option></select>
+        </div>
+      </div>
+      <div style="margin-bottom:10px"><label>Lote</label><input id="edit-s-lote"></div>
+      <div class="grid2">
+        <button onclick="cerrarEdicionSilobolsa()" style="background:transparent"><i class="ti ti-x"></i> Cancelar</button>
+        <button class="primary" onclick="guardarEdicionSilobolsa()"><i class="ti ti-check"></i> Guardar</button>
+      </div>
+    </div>
     <div id="lista-silobolsas"><div class="vacio">Sin datos todavía...</div></div>
   </div>
 
   <div class="card" id="panel-ensayos" style="display:none">
     <div class="card-title"><i class="ti ti-history"></i> Historial de ensayos</div>
+    <div id="panel-editar-ensayo" style="display:none;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:10px">Editando ensayo</div>
+      <div style="margin-bottom:10px"><label>Descripción</label><input id="edit-e-desc"></div>
+      <div class="grid2" style="margin-bottom:10px">
+        <div><label>Peso (kg)</label><input id="edit-e-peso" type="number" step="0.01"></div>
+        <div><label>Fecha</label><input id="edit-e-fecha" placeholder="dd/mm/aaaa"></div>
+      </div>
+      <div class="grid2">
+        <button onclick="cerrarEdicionEnsayo()" style="background:transparent"><i class="ti ti-x"></i> Cancelar</button>
+        <button class="primary" onclick="guardarEdicionEnsayo()"><i class="ti ti-check"></i> Guardar</button>
+      </div>
+    </div>
     <div id="lista-ensayos"><div class="vacio">Sin datos todavía...</div></div>
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-08-09
+    Monotolva — versión 2026-08-28
   </div>
 </div>
 
@@ -144,6 +209,13 @@ firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
 function fmt(n){return Number(n||0).toLocaleString('es-AR')}
+
+let ultimoHistorialCamiones=[];
+let ultimoHistorialSilobolsas=[];
+let ultimoHistorialEnsayos=[];
+let editandoCamionIdx=null;
+let editandoSilobolsaIdx=null;
+let editandoEnsayoIdx=null;
 
 const DESTINOS_CAMION=['Acopio','Puerto','Otro'];
 const DEST_COLOR={
@@ -273,8 +345,9 @@ function renderTotales(camiones, ensayos){
 function renderCamiones(lista){
   const cont=document.getElementById('lista-camiones');
   if(!lista.length){cont.innerHTML='<div class="vacio">Sin datos todavía...</div>';return;}
-  const ordenada=lista.slice().reverse();
-  cont.innerHTML=ordenada.map((c,i)=>{
+  ultimoHistorialCamiones=lista;
+  const ordenada=lista.map((c,idx)=>({c,idx})).reverse();
+  cont.innerHTML=ordenada.map(({c,idx},i)=>{
     const diff=(c.cargado||0)-(c.cupo||0);
     const ok=Math.abs(diff)<200;
     const descargas=(c.descargas||[]);
@@ -289,6 +362,7 @@ function renderCamiones(lista){
         <span style="display:flex;align-items:center;gap:6px">
           <span style="font-size:13px;font-weight:700;color:var(--text)">${fmt(Math.round(c.cargado||0))} kg</span>
           <span class="pill ${ok?'verde':'azul'}">${diff>=0?'+':''}${fmt(Math.round(diff))} kg</span>
+          <button class="edit-btn" onclick="event.stopPropagation();abrirEdicionCamion(${idx})" title="Editar"><i class="ti ti-pencil"></i></button>
         </span>
       </div>
       <div style="font-size:12px;color:var(--muted)">${c.producto||'—'} · ${c.fecha||'—'} · cupo ${fmt(c.cupo||0)} kg · Carta ${c.carta||'—'}${c.nombreDe?' · '+c.nombreDe:''}</div>
@@ -310,8 +384,9 @@ function renderCamiones(lista){
 function renderSilobolsas(lista){
   const cont=document.getElementById('lista-silobolsas');
   if(!lista.length){cont.innerHTML='<div class="vacio">Sin datos todavía...</div>';return;}
-  const ordenada=lista.slice().reverse();
-  cont.innerHTML=ordenada.map((s,i)=>{
+  ultimoHistorialSilobolsas=lista;
+  const ordenada=lista.map((s,idx)=>({s,idx})).reverse();
+  cont.innerHTML=ordenada.map(({s,idx},i)=>{
     const aportes=(s.aportes||[]);
     const filasAportes=aportes.length ? aportes.map(a=>`
         <div class="hist-row" style="padding-left:4px">
@@ -319,9 +394,12 @@ function renderSilobolsas(lista){
           <span style="font-weight:700">${fmt(Math.round(a.kg))} kg</span>
         </div>`).join('') : '<div class="vacio" style="padding:8px 0">Sin pesadas registradas</div>';
     return `<div class="hist-row" style="flex-direction:column;align-items:stretch;gap:4px;cursor:pointer" onclick="toggleDetalle('sb-${i}')">
-      <div style="display:flex;justify-content:space-between">
+      <div style="display:flex;justify-content:space-between;align-items:center">
         <strong>Silobolsa ${s.numero||'—'} <i class="ti ti-chevron-down" style="font-size:13px;color:var(--muted)"></i></strong>
-        <span class="pill gris">${fmt(Math.round(s.total||0))} kg</span>
+        <span style="display:flex;align-items:center;gap:6px">
+          <span class="pill gris">${fmt(Math.round(s.total||0))} kg</span>
+          <button class="edit-btn" onclick="event.stopPropagation();abrirEdicionSilobolsa(${idx})" title="Editar"><i class="ti ti-pencil"></i></button>
+        </span>
       </div>
       <div style="font-size:12px;color:var(--muted)">${s.producto||'—'} · Lote inicial: ${s.lote||'—'}</div>
       <div id="sb-${i}" style="display:none;margin-top:6px;padding-top:8px;border-top:1px solid var(--border)" onclick="event.stopPropagation()">
@@ -338,13 +416,124 @@ function toggleDetalle(id){
   el.style.display = el.style.display==='none' ? 'block' : 'none';
 }
 
+// ── EDICIÓN — escribe directo al registro puntual en Firebase ──────
+function abrirEdicionCamion(idx){
+  const c=ultimoHistorialCamiones[idx];
+  if(!c)return;
+  editandoCamionIdx=idx;
+  document.getElementById('edit-c-patente').value=c.patente||'';
+  document.getElementById('edit-c-chofer').value=c.chofer||'';
+  document.getElementById('edit-c-empresa').value=c.empresa||'';
+  document.getElementById('edit-c-carta').value=c.carta||'';
+  document.getElementById('edit-c-producto').value=c.producto||'Soja';
+  document.getElementById('edit-c-destino').value=c.destino||'Acopio';
+  document.getElementById('edit-c-lote').value=c.lote||'';
+  document.getElementById('edit-c-cupo').value=c.cupo||'';
+  document.getElementById('edit-c-nombrede').value=c.nombreDe||'Diego';
+  const panel=document.getElementById('panel-editar-camion');
+  panel.style.display='block';
+  panel.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function cerrarEdicionCamion(){
+  editandoCamionIdx=null;
+  document.getElementById('panel-editar-camion').style.display='none';
+}
+function guardarEdicionCamion(){
+  if(editandoCamionIdx===null)return;
+  const patente=document.getElementById('edit-c-patente').value.trim();
+  if(!patente){alert('La patente no puede quedar vacía.');return;}
+  const cupoNuevo=parseFloat(document.getElementById('edit-c-cupo').value);
+  const cambios={
+    patente: patente.toUpperCase(),
+    chofer: document.getElementById('edit-c-chofer').value||'Sin datos',
+    empresa: document.getElementById('edit-c-empresa').value||'—',
+    carta: document.getElementById('edit-c-carta').value||'—',
+    producto: document.getElementById('edit-c-producto').value,
+    destino: document.getElementById('edit-c-destino').value,
+    lote: document.getElementById('edit-c-lote').value,
+    nombreDe: document.getElementById('edit-c-nombrede').value,
+    ultimaEdicion: Date.now()
+  };
+  if(cupoNuevo && cupoNuevo>=100) cambios.cupo=cupoNuevo;
+  db.ref('historial/camiones/'+editandoCamionIdx).update(cambios)
+    .then(()=>cerrarEdicionCamion())
+    .catch(e=>alert('No se pudo guardar: '+e.message));
+}
+
+function abrirEdicionSilobolsa(idx){
+  const s=ultimoHistorialSilobolsas[idx];
+  if(!s)return;
+  editandoSilobolsaIdx=idx;
+  document.getElementById('edit-s-numero').value=s.numero||'';
+  document.getElementById('edit-s-producto').value=s.producto||'Soja';
+  document.getElementById('edit-s-lote').value=s.lote||'';
+  const panel=document.getElementById('panel-editar-silobolsa');
+  panel.style.display='block';
+  panel.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function cerrarEdicionSilobolsa(){
+  editandoSilobolsaIdx=null;
+  document.getElementById('panel-editar-silobolsa').style.display='none';
+}
+function guardarEdicionSilobolsa(){
+  if(editandoSilobolsaIdx===null)return;
+  const numero=document.getElementById('edit-s-numero').value.trim();
+  if(!numero){alert('El número no puede quedar vacío.');return;}
+  const cambios={
+    numero,
+    producto: document.getElementById('edit-s-producto').value,
+    lote: document.getElementById('edit-s-lote').value,
+    ultimaEdicion: Date.now()
+  };
+  db.ref('historial/silobolsas/'+editandoSilobolsaIdx).update(cambios)
+    .then(()=>cerrarEdicionSilobolsa())
+    .catch(e=>alert('No se pudo guardar: '+e.message));
+}
+
+function abrirEdicionEnsayo(idx){
+  const e=ultimoHistorialEnsayos[idx];
+  if(!e)return;
+  editandoEnsayoIdx=idx;
+  document.getElementById('edit-e-desc').value=e.desc||'';
+  document.getElementById('edit-e-peso').value=e.peso||'';
+  document.getElementById('edit-e-fecha').value=e.fecha||'';
+  const panel=document.getElementById('panel-editar-ensayo');
+  panel.style.display='block';
+  panel.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function cerrarEdicionEnsayo(){
+  editandoEnsayoIdx=null;
+  document.getElementById('panel-editar-ensayo').style.display='none';
+}
+function guardarEdicionEnsayo(){
+  if(editandoEnsayoIdx===null)return;
+  const desc=document.getElementById('edit-e-desc').value.trim();
+  if(!desc){alert('La descripción no puede quedar vacía.');return;}
+  const pesoNuevo=parseFloat(document.getElementById('edit-e-peso').value);
+  if(!pesoNuevo||pesoNuevo<=0){alert('Ingresá un peso válido.');return;}
+  const cambios={
+    desc,
+    peso: pesoNuevo,
+    fecha: document.getElementById('edit-e-fecha').value||ultimoHistorialEnsayos[editandoEnsayoIdx].fecha,
+    ultimaEdicion: Date.now()
+  };
+  db.ref('historial/ensayos/'+editandoEnsayoIdx).update(cambios)
+    .then(()=>cerrarEdicionEnsayo())
+    .catch(e=>alert('No se pudo guardar: '+e.message));
+}
+
 function renderEnsayos(lista){
   const cont=document.getElementById('lista-ensayos');
   if(!lista.length){cont.innerHTML='<div class="vacio">Sin datos todavía...</div>';return;}
-  cont.innerHTML=lista.slice().reverse().map(e=>`
+  ultimoHistorialEnsayos=lista;
+  const ordenada=lista.map((e,idx)=>({e,idx})).reverse();
+  cont.innerHTML=ordenada.map(({e,idx})=>`
     <div class="hist-row">
       <span style="color:var(--muted)">#${e.num} · ${e.fecha||''} ${e.hora||''} — ${e.desc||'—'}</span>
-      <span style="font-weight:800">${fmt(Math.round(e.peso||0))} kg</span>
+      <span style="display:flex;align-items:center;gap:6px">
+        <span style="font-weight:800">${fmt(Math.round(e.peso||0))} kg</span>
+        <button class="edit-btn" onclick="abrirEdicionEnsayo(${idx})" title="Editar"><i class="ti ti-pencil"></i></button>
+      </span>
     </div>`).join('');
 }
 
