@@ -661,7 +661,7 @@ button:disabled{opacity:0.35;cursor:not-allowed}
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-08-27b
+    Monotolva — versión 2026-08-28
   </div>
 
 </div>
@@ -699,6 +699,24 @@ try{
   fbDb=firebase.database();
 }catch(e){console.warn('No se pudo iniciar Firebase (¿sin internet?):',e);}
 
+function mergearPorId(local, remoto){
+  if(!remoto || !remoto.length)return local;
+  const remotoPorId={};
+  remoto.forEach(r=>{ if(r && r.id) remotoPorId[r.id]=r; });
+  return local.map((l,idx)=>{
+    if(l.id){
+      const r=remotoPorId[l.id];
+      if(r && (r.ultimaEdicion||0) > (l.ultimaEdicion||0)) return r;
+      return l;
+    }
+    // Registro viejo sin id: si el mismo lugar en la nube tiene una edición
+    // más nueva (por ejemplo hecha desde la app del hermano), la adoptamos.
+    const r=remoto[idx];
+    if(r && (r.ultimaEdicion||0) > (l.ultimaEdicion||0)) return r;
+    return l;
+  });
+}
+
 function syncFirebaseHistorial(){
   if(!fbDb)return;
   try{
@@ -714,6 +732,16 @@ function syncFirebaseHistorial(){
         console.warn('Sync de historial CANCELADO: este dispositivo tiene menos datos ('+totalNuevo+') que la nube ('+totalActual+'). No se sobrescribe para evitar pérdida de datos.');
         return;
       }
+      // Antes de subir, adoptamos cualquier edición hecha desde la nube (ej: la
+      // app del hermano) que sea más nueva que lo que tenemos localmente —
+      // así no se pisa una corrección hecha de noche desde la casilla.
+      cargasDelDia=mergearPorId(cargasDelDia, actual.camiones);
+      silobolsasCerradas=mergearPorId(silobolsasCerradas, actual.silobolsas);
+      ensayosGuardados=mergearPorId(ensayosGuardados, actual.ensayos);
+      try{ localStorage.setItem(LS_KEY, JSON.stringify({cargasDelDia,ensayosGuardados,silobolsasCerradas})); }catch(e){}
+      renderResumenDia();
+      renderEnsayos();
+
       fbDb.ref('historial').set({
         camiones:cargasDelDia,
         silobolsas:silobolsasCerradas,
@@ -765,6 +793,7 @@ function fmt(n){return Number(n).toLocaleString('es-AR')}
 
 // ── PERSISTENCIA LOCAL (memoria del navegador/tablet) ─
 const LS_KEY='monotolva_resumen_dia';
+function generarIdRegistro(){return Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);}
 const LS_KEY_SESION='monotolva_sesion_activa';
 function hoyStr(){return new Date().toLocaleDateString('es-AR')}
 
@@ -1384,7 +1413,7 @@ function guardarEnsayo(){
   const ahora=new Date();
   const fecha=ahora.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'});
   const hora=ahora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
-  ensayosGuardados.push({desc,peso:pesoBT,fecha,hora,num:ensayosGuardados.length+1});
+  ensayosGuardados.push({id:generarIdRegistro(),desc,peso:pesoBT,fecha,hora,num:ensayosGuardados.length+1,ultimaEdicion:Date.now()});
   document.getElementById('ensayo-desc').value='';
   guardarLocal();
   renderEnsayos();
@@ -1530,6 +1559,7 @@ function guardarEdicionCamionCerrado(){
   const cupoNuevo=parseFloat(document.getElementById('edit2-kg-cupo').value);
   if(cupoNuevo && cupoNuevo>=100) c.cupo=cupoNuevo;
   c.nombreDe=document.getElementById('edit2-nombre-de').value;
+  c.ultimaEdicion=Date.now();
   cerrarEdicionCamionCerrado();
   guardarLocal();
   renderResumenDia();
@@ -1566,6 +1596,7 @@ function guardarEdicionSilobolsaCerrada(){
       s.numero=numeroNuevo;
       s.producto=productoNuevo;
       s.lote=loteNuevo;
+      s.ultimaEdicion=Date.now();
     }
   });
   cerrarEdicionSilobolsaCerrada();
@@ -1602,6 +1633,7 @@ function guardarEdicionEnsayo(){
   e.desc=desc;
   e.peso=pesoNuevo;
   e.fecha=document.getElementById('edit-en-fecha').value||e.fecha;
+  e.ultimaEdicion=Date.now();
   cerrarEdicionEnsayo();
   guardarLocal();
   renderResumenDia();
@@ -1790,13 +1822,15 @@ function cerrarSilobolsa(){
   if(!estadoBolsa.aportes.length){alert('Sumá al menos una pesada antes de cerrar la silobolsa.');return;}
   const lotesUsadosBolsa=[...new Set(estadoBolsa.aportes.map(a=>a.lote||estadoBolsa.lote))].filter(Boolean);
   silobolsasCerradas.push({
+    id:generarIdRegistro(),
     numero:estadoBolsa.numero,
     producto:estadoBolsa.producto,
     lote:lotesUsadosBolsa.join(' + ')||estadoBolsa.lote,
     total:estadoBolsa.total,
     aportes:estadoBolsa.aportes,
     fecha:new Date().toLocaleDateString('es-AR'),
-    hora:new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})
+    hora:new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),
+    ultimaEdicion:Date.now()
   });
   guardarLocal();
   registrarCierreParaBackup();
@@ -2110,6 +2144,7 @@ function completarCarga(){
 
   const lotesUsadosCamion=[...new Set(estado.descargas.map(d=>d.lote||estado.lote))].filter(Boolean);
   cargasDelDia.push({
+    id: generarIdRegistro(),
     num:cargasDelDia.length+1,
     patente:estado.patente,
     chofer:estado.chofer,
@@ -2124,7 +2159,8 @@ function completarCarga(){
     diff,
     descargas:[...estado.descargas],
     fecha:new Date().toLocaleDateString('es-AR'),
-    hora:new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})
+    hora:new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),
+    ultimaEdicion:Date.now()
   });
   guardarLocal();
   registrarCierreParaBackup();
