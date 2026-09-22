@@ -116,6 +116,29 @@ button.primary{background:var(--green);color:#fff;border-color:var(--green)}
 
   <div class="card" id="panel-camiones">
     <div class="card-title"><i class="ti ti-history"></i> Historial de camiones</div>
+    <div style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px"><i class="ti ti-filter"></i> Filtrar</div>
+      <div class="grid2" style="margin-bottom:8px">
+        <div><label>Fecha</label><input type="date" id="filtro-fecha" onchange="aplicarFiltrosCamiones()"></div>
+        <div>
+          <label>Destino</label>
+          <select id="filtro-destino" onchange="aplicarFiltrosCamiones()">
+            <option value="">Todos</option>
+            <option value="Acopio">Acopio</option>
+            <option value="Puerto">Puerto</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid2" style="margin-bottom:8px">
+        <div><label>Carta de porte</label><input id="filtro-carta" placeholder="Ej: 1234" oninput="aplicarFiltrosCamiones()"></div>
+        <div><label>Chofer</label><input id="filtro-chofer" placeholder="Ej: Paredes" oninput="aplicarFiltrosCamiones()"></div>
+      </div>
+      <div class="grid2" style="margin-bottom:8px">
+        <div><label>Lote</label><input id="filtro-lote" placeholder="Ej: Lote 12" oninput="aplicarFiltrosCamiones()"></div>
+      </div>
+      <button onclick="limpiarFiltrosCamiones()" style="background:transparent"><i class="ti ti-x"></i> Limpiar filtros</button>
+    </div>
     <div id="panel-editar-camion" style="display:none;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
       <div style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:10px">Editando camión</div>
       <div class="grid2" style="margin-bottom:10px">
@@ -189,7 +212,7 @@ button.primary{background:var(--green);color:#fff;border-color:var(--green)}
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-08-28
+    Monotolva — versión 2026-09-11b
   </div>
 </div>
 
@@ -342,11 +365,48 @@ function renderTotales(camiones, ensayos){
     </div>`).join('') : '<div class="vacio" style="padding:6px 0">Sin datos aún...</div>';
 }
 
+function fechaARaISO(f){
+  if(!f)return '';
+  const partes=f.split('/');
+  if(partes.length!==3)return '';
+  let [d,m,y]=partes;
+  if(y.length===2)y='20'+y;
+  return y+'-'+m.padStart(2,'0')+'-'+d.padStart(2,'0');
+}
+
+let filtroFecha='', filtroDestino='', filtroCarta='', filtroChofer='', filtroLote='';
+
+function aplicarFiltrosCamiones(){
+  filtroFecha=document.getElementById('filtro-fecha').value;
+  filtroDestino=document.getElementById('filtro-destino').value;
+  filtroCarta=document.getElementById('filtro-carta').value.trim().toLowerCase();
+  filtroChofer=document.getElementById('filtro-chofer').value.trim().toLowerCase();
+  filtroLote=document.getElementById('filtro-lote').value.trim().toLowerCase();
+  renderCamiones(ultimoHistorialCamiones);
+}
+
+function limpiarFiltrosCamiones(){
+  document.getElementById('filtro-fecha').value='';
+  document.getElementById('filtro-destino').value='';
+  document.getElementById('filtro-carta').value='';
+  document.getElementById('filtro-chofer').value='';
+  document.getElementById('filtro-lote').value='';
+  filtroFecha='';filtroDestino='';filtroCarta='';filtroChofer='';filtroLote='';
+  renderCamiones(ultimoHistorialCamiones);
+}
+
 function renderCamiones(lista){
   const cont=document.getElementById('lista-camiones');
-  if(!lista.length){cont.innerHTML='<div class="vacio">Sin datos todavía...</div>';return;}
   ultimoHistorialCamiones=lista;
-  const ordenada=lista.map((c,idx)=>({c,idx})).reverse();
+  if(!lista.length){cont.innerHTML='<div class="vacio">Sin datos todavía...</div>';return;}
+  let conIdx=lista.map((c,idx)=>({c,idx}));
+  if(filtroFecha)conIdx=conIdx.filter(({c})=>fechaARaISO(c.fecha)===filtroFecha);
+  if(filtroDestino)conIdx=conIdx.filter(({c})=>c.destino===filtroDestino);
+  if(filtroCarta)conIdx=conIdx.filter(({c})=>(c.carta||'').toLowerCase().includes(filtroCarta));
+  if(filtroChofer)conIdx=conIdx.filter(({c})=>(c.chofer||'').toLowerCase().includes(filtroChofer));
+  if(filtroLote)conIdx=conIdx.filter(({c})=>(c.lote||'').toLowerCase().includes(filtroLote));
+  if(!conIdx.length){cont.innerHTML='<div class="vacio">Ningún camión coincide con el filtro.</div>';return;}
+  const ordenada=conIdx.slice().reverse();
   cont.innerHTML=ordenada.map(({c,idx},i)=>{
     const diff=(c.cargado||0)-(c.cupo||0);
     const ok=Math.abs(diff)<200;
