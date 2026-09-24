@@ -192,6 +192,10 @@ button:disabled{opacity:0.35;cursor:not-allowed}
             </select>
           </div>
         </div>
+        <div class="grid2" style="margin-top:10px">
+          <div><label>Comprador</label><input id="comprador" placeholder="Ej: Roagro"></div>
+          <div><label>Observaciones</label><input id="observaciones" placeholder="Ej: vendido / a stock / a fijar"></div>
+        </div>
       </div>
       <button class="primary" onclick="iniciarCarga()"><i class="ti ti-player-play"></i> Iniciar carga</button>
     </div>
@@ -252,6 +256,10 @@ button:disabled{opacity:0.35;cursor:not-allowed}
                 <option>Diego</option><option>Hernán</option>
               </select>
             </div>
+          </div>
+          <div class="grid2" style="margin-bottom:10px">
+            <div><label>Comprador</label><input id="edit-comprador"></div>
+            <div><label>Observaciones</label><input id="edit-observaciones"></div>
           </div>
           <div class="grid2">
             <button onclick="toggleEditarCamion()" style="background:transparent"><i class="ti ti-x"></i> Cancelar</button>
@@ -609,6 +617,10 @@ button:disabled{opacity:0.35;cursor:not-allowed}
             </select>
           </div>
         </div>
+        <div class="grid2" style="margin-bottom:10px">
+          <div><label>Comprador</label><input id="edit2-comprador"></div>
+          <div><label>Observaciones</label><input id="edit2-observaciones"></div>
+        </div>
         <div class="grid2">
           <button onclick="cerrarEdicionCamionCerrado()" style="background:transparent"><i class="ti ti-x"></i> Cancelar</button>
           <button class="primary" onclick="guardarEdicionCamionCerrado()"><i class="ti ti-check"></i> Guardar cambios</button>
@@ -661,7 +673,7 @@ button:disabled{opacity:0.35;cursor:not-allowed}
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-08-28b
+    Monotolva — versión 2026-09-18
   </div>
 
 </div>
@@ -1463,15 +1475,15 @@ function descargarCSV(filename, rows){
 
 function exportarCamiones(){
   if(!cargasDelDia.length){alert('Todavía no hay camiones cargados para exportar.');return;}
-  const rows=[['Patente','Chofer','Empresa','Carta','Producto','Destino','A nombre de','N° Descarga','Lote','Fecha','Hora','Kg']];
+  const rows=[['Patente','Chofer','Empresa','Carta','Producto','Destino','A nombre de','Comprador','Observaciones','N° Descarga','Lote','Fecha','Hora','Kg']];
   cargasDelDia.forEach(c=>{
     if(c.descargas && c.descargas.length){
       c.descargas.forEach(d=>{
-        rows.push([c.patente,c.chofer,c.empresa,c.carta,c.producto,c.destino||'',c.nombreDe||'',d.num,d.lote||c.lote||'',d.fecha||c.fecha||'',d.hora,Math.round(d.kg)]);
+        rows.push([c.patente,c.chofer,c.empresa,c.carta,c.producto,c.destino||'',c.nombreDe||'',c.comprador||'',c.observaciones||'',d.num,d.lote||c.lote||'',d.fecha||c.fecha||'',d.hora,Math.round(d.kg)]);
       });
     }else{
       // Camiones cargados antes de tener el detalle guardado: al menos mostramos el total
-      rows.push([c.patente,c.chofer,c.empresa,c.carta,c.producto,c.destino||'',c.nombreDe||'','—',c.lote||'',c.fecha||'',c.hora,Math.round(c.cargado)]);
+      rows.push([c.patente,c.chofer,c.empresa,c.carta,c.producto,c.destino||'',c.nombreDe||'',c.comprador||'',c.observaciones||'','—',c.lote||'',c.fecha||'',c.hora,Math.round(c.cargado)]);
     }
   });
   descargarCSV(nombreArchivo('camiones'), rows);
@@ -1544,6 +1556,8 @@ function abrirEdicionCamionCerrado(idx){
   document.getElementById('edit2-lote').value=c.lote||'';
   document.getElementById('edit2-kg-cupo').value=c.cupo||'';
   document.getElementById('edit2-nombre-de').value=c.nombreDe||'Diego';
+  document.getElementById('edit2-comprador').value=c.comprador||'';
+  document.getElementById('edit2-observaciones').value=c.observaciones||'';
   document.getElementById('panel-editar-cerrado').style.display='block';
   document.getElementById('panel-editar-cerrado').scrollIntoView({behavior:'smooth',block:'start'});
 }
@@ -1569,6 +1583,8 @@ function guardarEdicionCamionCerrado(){
   const cupoNuevo=parseFloat(document.getElementById('edit2-kg-cupo').value);
   if(cupoNuevo && cupoNuevo>=100) c.cupo=cupoNuevo;
   c.nombreDe=document.getElementById('edit2-nombre-de').value;
+  c.comprador=document.getElementById('edit2-comprador').value||'—';
+  c.observaciones=document.getElementById('edit2-observaciones').value||'';
   c.ultimaEdicion=Date.now();
   cerrarEdicionCamionCerrado();
   guardarLocal();
@@ -1694,7 +1710,8 @@ function renderResumenDia(){
             <button onclick="abrirEdicionCamionCerrado(${idx})" title="Editar" style="width:auto;padding:4px 7px;font-size:12px;background:transparent;border:1px solid var(--border)"><i class="ti ti-pencil"></i></button>
           </span>
         </div>
-        <div style="font-size:11px;color:var(--muted);margin-bottom:2px">Lote: ${c.lote||'—'} · Carta ${c.carta||'—'}</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:2px">Lote: ${c.lote||'—'} · Carta ${c.carta||'—'}${c.comprador&&c.comprador!=='—'?' · Comprador: '+c.comprador:''}</div>
+        ${c.observaciones?`<div style="font-size:11px;color:var(--muted);margin-bottom:2px"><i class="ti ti-note"></i> ${c.observaciones}</div>`:''}
         <div class="ensayo-hist-meta"><span>${c.fecha||''} ${c.hora}</span><span style="font-weight:800;color:var(--yellow)">${fmt(Math.round(c.cargado))} kg</span></div>
         ${nDesc ? `<details style="margin-top:8px">
           <summary style="cursor:pointer;font-size:11px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:0.4px">Ver ${nDesc} descarga${nDesc>1?'s':''}</summary>
@@ -1883,6 +1900,8 @@ function toggleEditarCamion(){
     document.getElementById('edit-lote').value=estado.lote||'';
     document.getElementById('edit-kg-cupo').value=estado.cupo||'';
     document.getElementById('edit-nombre-de').value=estado.nombreDe||'Diego';
+    document.getElementById('edit-comprador').value=estado.comprador||'';
+    document.getElementById('edit-observaciones').value=estado.observaciones||'';
   }
   panel.style.display = abrir ? 'block' : 'none';
 }
@@ -1902,6 +1921,8 @@ function guardarEdicionCamion(){
   estado.lote=document.getElementById('edit-lote').value;
   estado.cupo=cupoNuevo;
   estado.nombreDe=document.getElementById('edit-nombre-de').value;
+  estado.comprador=document.getElementById('edit-comprador').value||'—';
+  estado.observaciones=document.getElementById('edit-observaciones').value||'';
   document.getElementById('lbl-patente').textContent=estado.patente+' — '+estado.empresa;
   document.getElementById('lbl-chofer').textContent=estado.chofer+(estado.nombreDe?' · A nombre de '+estado.nombreDe:'');
   document.getElementById('lbl-carta').textContent='Carta N° '+estado.carta;
@@ -1982,7 +2003,9 @@ function iniciarCarga(){
     destino:document.getElementById('destino').value,
     empresa:document.getElementById('empresa').value||'—',
     fecha:document.getElementById('fecha').value,
-    nombreDe:document.getElementById('nombre-de').value
+    nombreDe:document.getElementById('nombre-de').value,
+    comprador:document.getElementById('comprador').value||'—',
+    observaciones:document.getElementById('observaciones').value||''
   };
   document.getElementById('lbl-patente').textContent=estado.patente+' — '+estado.empresa;
   document.getElementById('lbl-chofer').textContent=estado.chofer+' · A nombre de '+estado.nombreDe;
@@ -2164,6 +2187,8 @@ function completarCarga(){
     lote:lotesUsadosCamion.join(' + ')||estado.lote,
     destino:estado.destino,
     nombreDe:estado.nombreDe,
+    comprador:estado.comprador||'—',
+    observaciones:estado.observaciones||'',
     cupo:estado.cupo,
     cargado:estado.cargado,
     diff,
@@ -2185,6 +2210,8 @@ function completarCarga(){
       <tr><td style="padding:6px 0;color:var(--muted)">Producto</td><td style="text-align:right">${estado.producto}</td></tr>
       <tr><td style="padding:6px 0;color:var(--muted)">Destino</td><td style="text-align:right">${estado.destino}</td></tr>
       <tr><td style="padding:6px 0;color:var(--muted)">A nombre de</td><td style="text-align:right;font-weight:700">${estado.nombreDe}</td></tr>
+      <tr><td style="padding:6px 0;color:var(--muted)">Comprador</td><td style="text-align:right">${estado.comprador||'—'}</td></tr>
+      ${estado.observaciones?`<tr><td style="padding:6px 0;color:var(--muted)">Observaciones</td><td style="text-align:right">${estado.observaciones}</td></tr>`:''}
       <tr style="border-top:1px solid var(--border)">
         <td style="padding:8px 0;color:var(--muted)">Cupo total</td>
         <td style="text-align:right;font-weight:700">${fmt(estado.cupo)} kg</td>

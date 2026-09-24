@@ -136,6 +136,7 @@ button.primary{background:var(--green);color:#fff;border-color:var(--green)}
       </div>
       <div class="grid2" style="margin-bottom:8px">
         <div><label>Lote</label><input id="filtro-lote" placeholder="Ej: Lote 12" oninput="aplicarFiltrosCamiones()"></div>
+        <div><label>Comprador</label><input id="filtro-comprador" placeholder="Ej: Roagro" oninput="aplicarFiltrosCamiones()"></div>
       </div>
       <button onclick="limpiarFiltrosCamiones()" style="background:transparent"><i class="ti ti-x"></i> Limpiar filtros</button>
     </div>
@@ -165,6 +166,10 @@ button.primary{background:var(--green);color:#fff;border-color:var(--green)}
       </div>
       <div class="grid2" style="margin-bottom:10px">
         <div><label>A nombre de</label><select id="edit-c-nombrede"><option>Diego</option><option>Hernán</option></select></div>
+      </div>
+      <div class="grid2" style="margin-bottom:10px">
+        <div><label>Comprador</label><input id="edit-c-comprador"></div>
+        <div><label>Observaciones</label><input id="edit-c-observaciones"></div>
       </div>
       <div class="grid2">
         <button onclick="cerrarEdicionCamion()" style="background:transparent"><i class="ti ti-x"></i> Cancelar</button>
@@ -212,7 +217,7 @@ button.primary{background:var(--green);color:#fff;border-color:var(--green)}
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-09-11b
+    Monotolva — versión 2026-09-18
   </div>
 </div>
 
@@ -374,7 +379,7 @@ function fechaARaISO(f){
   return y+'-'+m.padStart(2,'0')+'-'+d.padStart(2,'0');
 }
 
-let filtroFecha='', filtroDestino='', filtroCarta='', filtroChofer='', filtroLote='';
+let filtroFecha='', filtroDestino='', filtroCarta='', filtroChofer='', filtroLote='', filtroComprador='';
 
 function aplicarFiltrosCamiones(){
   filtroFecha=document.getElementById('filtro-fecha').value;
@@ -382,6 +387,7 @@ function aplicarFiltrosCamiones(){
   filtroCarta=document.getElementById('filtro-carta').value.trim().toLowerCase();
   filtroChofer=document.getElementById('filtro-chofer').value.trim().toLowerCase();
   filtroLote=document.getElementById('filtro-lote').value.trim().toLowerCase();
+  filtroComprador=document.getElementById('filtro-comprador').value.trim().toLowerCase();
   renderCamiones(ultimoHistorialCamiones);
 }
 
@@ -391,7 +397,8 @@ function limpiarFiltrosCamiones(){
   document.getElementById('filtro-carta').value='';
   document.getElementById('filtro-chofer').value='';
   document.getElementById('filtro-lote').value='';
-  filtroFecha='';filtroDestino='';filtroCarta='';filtroChofer='';filtroLote='';
+  document.getElementById('filtro-comprador').value='';
+  filtroFecha='';filtroDestino='';filtroCarta='';filtroChofer='';filtroLote='';filtroComprador='';
   renderCamiones(ultimoHistorialCamiones);
 }
 
@@ -405,6 +412,7 @@ function renderCamiones(lista){
   if(filtroCarta)conIdx=conIdx.filter(({c})=>(c.carta||'').toLowerCase().includes(filtroCarta));
   if(filtroChofer)conIdx=conIdx.filter(({c})=>(c.chofer||'').toLowerCase().includes(filtroChofer));
   if(filtroLote)conIdx=conIdx.filter(({c})=>(c.lote||'').toLowerCase().includes(filtroLote));
+  if(filtroComprador)conIdx=conIdx.filter(({c})=>(c.comprador||'').toLowerCase().includes(filtroComprador));
   if(!conIdx.length){cont.innerHTML='<div class="vacio">Ningún camión coincide con el filtro.</div>';return;}
   const ordenada=conIdx.slice().reverse();
   cont.innerHTML=ordenada.map(({c,idx},i)=>{
@@ -432,6 +440,8 @@ function renderCamiones(lista){
           <b style="color:var(--text)">Empresa:</b> ${c.empresa||'—'}<br>
           <b style="color:var(--text)">Destino:</b> ${c.destino||'—'}<br>
           <b style="color:var(--text)">Lote(s):</b> ${c.lote||'—'}<br>
+          <b style="color:var(--text)">Comprador:</b> ${c.comprador||'—'}<br>
+          ${c.observaciones?`<b style="color:var(--text)">Observaciones:</b> ${c.observaciones}<br>`:''}
           <b style="color:var(--text)">Total cargado:</b> ${fmt(Math.round(c.cargado||0))} kg (cupo ${fmt(c.cupo||0)} kg)
         </div>
         <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">Descargas registradas</div>
@@ -490,6 +500,8 @@ function abrirEdicionCamion(idx){
   document.getElementById('edit-c-lote').value=c.lote||'';
   document.getElementById('edit-c-cupo').value=c.cupo||'';
   document.getElementById('edit-c-nombrede').value=c.nombreDe||'Diego';
+  document.getElementById('edit-c-comprador').value=c.comprador||'';
+  document.getElementById('edit-c-observaciones').value=c.observaciones||'';
   const panel=document.getElementById('panel-editar-camion');
   panel.style.display='block';
   panel.scrollIntoView({behavior:'smooth',block:'start'});
@@ -512,6 +524,8 @@ function guardarEdicionCamion(){
     destino: document.getElementById('edit-c-destino').value,
     lote: document.getElementById('edit-c-lote').value,
     nombreDe: document.getElementById('edit-c-nombrede').value,
+    comprador: document.getElementById('edit-c-comprador').value||'—',
+    observaciones: document.getElementById('edit-c-observaciones').value||'',
     ultimaEdicion: Date.now()
   };
   if(cupoNuevo && cupoNuevo>=100) cambios.cupo=cupoNuevo;
