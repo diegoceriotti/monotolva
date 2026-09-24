@@ -70,6 +70,18 @@ button{padding:10px 14px;border-radius:8px;border:1px solid var(--border);backgr
 button.primary{background:var(--green);color:#fff;border-color:var(--green)}
 .edit-btn{width:auto;padding:4px 7px;font-size:12px;background:transparent;border:1px solid var(--border);flex-shrink:0}
 @media(max-width:400px){.grid3,.grid2{grid-template-columns:1fr}}
+#reporte-imprimir{display:none}
+@media print{
+  body *{visibility:hidden}
+  #reporte-imprimir,#reporte-imprimir *{visibility:visible}
+  #reporte-imprimir{display:block;position:absolute;top:0;left:0;width:100%;color:#000;background:#fff;padding:20px}
+  #reporte-imprimir table{width:100%;border-collapse:collapse;font-size:12px}
+  #reporte-imprimir th,#reporte-imprimir td{border:1px solid #999;padding:5px 7px;text-align:left}
+  #reporte-imprimir th{background:#eee}
+  #reporte-imprimir h1{font-size:18px;margin-bottom:4px}
+  #reporte-imprimir .rep-meta{font-size:12px;color:#333;margin-bottom:14px}
+  #reporte-imprimir .rep-total{font-size:14px;font-weight:800;margin-top:10px}
+}
 </style>
 </head>
 <body>
@@ -139,6 +151,7 @@ button.primary{background:var(--green);color:#fff;border-color:var(--green)}
         <div><label>Comprador</label><input id="filtro-comprador" placeholder="Ej: Roagro" oninput="aplicarFiltrosCamiones()"></div>
       </div>
       <button onclick="limpiarFiltrosCamiones()" style="background:transparent"><i class="ti ti-x"></i> Limpiar filtros</button>
+      <button class="primary" onclick="generarReporte()" style="margin-top:8px"><i class="ti ti-file-download"></i> Generar reporte (PDF)</button>
     </div>
     <div id="panel-editar-camion" style="display:none;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
       <div style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:10px">Editando camión</div>
@@ -217,9 +230,11 @@ button.primary{background:var(--green);color:#fff;border-color:var(--green)}
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-09-18
+    Monotolva — versión 2026-09-18b
   </div>
 </div>
+
+<div id="reporte-imprimir"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
@@ -402,10 +417,61 @@ function limpiarFiltrosCamiones(){
   renderCamiones(ultimoHistorialCamiones);
 }
 
-function renderCamiones(lista){
-  const cont=document.getElementById('lista-camiones');
-  ultimoHistorialCamiones=lista;
-  if(!lista.length){cont.innerHTML='<div class="vacio">Sin datos todavía...</div>';return;}
+function generarReporte(){
+  const conIdx=obtenerCamionesFiltrados(ultimoHistorialCamiones);
+  if(!conIdx.length){alert('No hay camiones que coincidan con el filtro actual para incluir en el reporte.');return;}
+  const ordenados=conIdx.slice().reverse();
+
+  const filtrosAplicados=[];
+  if(filtroFecha)filtrosAplicados.push('Fecha: '+filtroFecha.split('-').reverse().join('/'));
+  if(filtroDestino)filtrosAplicados.push('Destino: '+filtroDestino);
+  if(filtroCarta)filtrosAplicados.push('Carta de porte contiene: "'+filtroCarta+'"');
+  if(filtroChofer)filtrosAplicados.push('Chofer contiene: "'+filtroChofer+'"');
+  if(filtroLote)filtrosAplicados.push('Lote contiene: "'+filtroLote+'"');
+  if(filtroComprador)filtrosAplicados.push('Comprador contiene: "'+filtroComprador+'"');
+
+  let totalCargado=0, totalCupo=0;
+  const filas=ordenados.map(({c})=>{
+    const diff=(c.cargado||0)-(c.cupo||0);
+    totalCargado+=(c.cargado||0);
+    totalCupo+=(c.cupo||0);
+    return `<tr>
+      <td>${c.patente||'—'}</td>
+      <td>${c.fecha||'—'}</td>
+      <td>${c.chofer||'—'}</td>
+      <td>${c.destino||'—'}</td>
+      <td>${c.carta||'—'}</td>
+      <td>${c.comprador||'—'}</td>
+      <td>${c.lote||'—'}</td>
+      <td style="text-align:right">${fmt(Math.round(c.cupo||0))}</td>
+      <td style="text-align:right">${fmt(Math.round(c.cargado||0))}</td>
+      <td style="text-align:right">${diff>=0?'+':''}${fmt(Math.round(diff))}</td>
+    </tr>`;
+  }).join('');
+
+  const ahora=new Date().toLocaleString('es-AR');
+  document.getElementById('reporte-imprimir').innerHTML=`
+    <h1>Monotolva — Reporte de camiones</h1>
+    <div class="rep-meta">
+      Generado: ${ahora}<br>
+      ${filtrosAplicados.length ? 'Filtros aplicados: '+filtrosAplicados.join(' · ') : 'Sin filtros aplicados (todos los camiones)'}<br>
+      Cantidad de camiones incluidos: ${ordenados.length}
+    </div>
+    <table>
+      <thead><tr>
+        <th>Patente</th><th>Fecha</th><th>Chofer</th><th>Destino</th><th>Carta</th><th>Comprador</th><th>Lote</th>
+        <th>Cupo (kg)</th><th>Cargado (kg)</th><th>Dif. (kg)</th>
+      </tr></thead>
+      <tbody>${filas}</tbody>
+    </table>
+    <div class="rep-total">
+      Total cupo: ${fmt(Math.round(totalCupo))} kg &nbsp;·&nbsp; Total cargado: ${fmt(Math.round(totalCargado))} kg &nbsp;·&nbsp; Diferencia total: ${(totalCargado-totalCupo)>=0?'+':''}${fmt(Math.round(totalCargado-totalCupo))} kg
+    </div>`;
+
+  setTimeout(()=>window.print(),150);
+}
+
+function obtenerCamionesFiltrados(lista){
   let conIdx=lista.map((c,idx)=>({c,idx}));
   if(filtroFecha)conIdx=conIdx.filter(({c})=>fechaARaISO(c.fecha)===filtroFecha);
   if(filtroDestino)conIdx=conIdx.filter(({c})=>c.destino===filtroDestino);
@@ -413,6 +479,14 @@ function renderCamiones(lista){
   if(filtroChofer)conIdx=conIdx.filter(({c})=>(c.chofer||'').toLowerCase().includes(filtroChofer));
   if(filtroLote)conIdx=conIdx.filter(({c})=>(c.lote||'').toLowerCase().includes(filtroLote));
   if(filtroComprador)conIdx=conIdx.filter(({c})=>(c.comprador||'').toLowerCase().includes(filtroComprador));
+  return conIdx;
+}
+
+function renderCamiones(lista){
+  const cont=document.getElementById('lista-camiones');
+  ultimoHistorialCamiones=lista;
+  if(!lista.length){cont.innerHTML='<div class="vacio">Sin datos todavía...</div>';return;}
+  const conIdx=obtenerCamionesFiltrados(lista);
   if(!conIdx.length){cont.innerHTML='<div class="vacio">Ningún camión coincide con el filtro.</div>';return;}
   const ordenada=conIdx.slice().reverse();
   cont.innerHTML=ordenada.map(({c,idx},i)=>{
