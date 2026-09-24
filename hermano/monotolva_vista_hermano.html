@@ -150,6 +150,20 @@ button.primary{background:var(--green);color:#fff;border-color:var(--green)}
         <div><label>Lote</label><input id="filtro-lote" placeholder="Ej: Lote 12" oninput="aplicarFiltrosCamiones()"></div>
         <div><label>Comprador</label><input id="filtro-comprador" placeholder="Ej: Roagro" oninput="aplicarFiltrosCamiones()"></div>
       </div>
+      <div class="grid2" style="margin-bottom:8px">
+        <div>
+          <label>Producto</label>
+          <select id="filtro-producto" onchange="aplicarFiltrosCamiones()">
+            <option value="">Todos</option>
+            <option value="Soja">Soja</option>
+            <option value="Maíz">Maíz</option>
+            <option value="Trigo">Trigo</option>
+            <option value="Girasol">Girasol</option>
+            <option value="Sorgo">Sorgo</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+      </div>
       <button onclick="limpiarFiltrosCamiones()" style="background:transparent"><i class="ti ti-x"></i> Limpiar filtros</button>
       <button class="primary" onclick="generarReporte()" style="margin-top:8px"><i class="ti ti-file-download"></i> Generar reporte (PDF)</button>
     </div>
@@ -230,7 +244,7 @@ button.primary{background:var(--green);color:#fff;border-color:var(--green)}
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-09-18b
+    Monotolva — versión 2026-09-18c
   </div>
 </div>
 
@@ -394,7 +408,7 @@ function fechaARaISO(f){
   return y+'-'+m.padStart(2,'0')+'-'+d.padStart(2,'0');
 }
 
-let filtroFecha='', filtroDestino='', filtroCarta='', filtroChofer='', filtroLote='', filtroComprador='';
+let filtroFecha='', filtroDestino='', filtroCarta='', filtroChofer='', filtroLote='', filtroComprador='', filtroProducto='';
 
 function aplicarFiltrosCamiones(){
   filtroFecha=document.getElementById('filtro-fecha').value;
@@ -403,6 +417,7 @@ function aplicarFiltrosCamiones(){
   filtroChofer=document.getElementById('filtro-chofer').value.trim().toLowerCase();
   filtroLote=document.getElementById('filtro-lote').value.trim().toLowerCase();
   filtroComprador=document.getElementById('filtro-comprador').value.trim().toLowerCase();
+  filtroProducto=document.getElementById('filtro-producto').value;
   renderCamiones(ultimoHistorialCamiones);
 }
 
@@ -413,7 +428,8 @@ function limpiarFiltrosCamiones(){
   document.getElementById('filtro-chofer').value='';
   document.getElementById('filtro-lote').value='';
   document.getElementById('filtro-comprador').value='';
-  filtroFecha='';filtroDestino='';filtroCarta='';filtroChofer='';filtroLote='';filtroComprador='';
+  document.getElementById('filtro-producto').value='';
+  filtroFecha='';filtroDestino='';filtroCarta='';filtroChofer='';filtroLote='';filtroComprador='';filtroProducto='';
   renderCamiones(ultimoHistorialCamiones);
 }
 
@@ -429,6 +445,7 @@ function generarReporte(){
   if(filtroChofer)filtrosAplicados.push('Chofer contiene: "'+filtroChofer+'"');
   if(filtroLote)filtrosAplicados.push('Lote contiene: "'+filtroLote+'"');
   if(filtroComprador)filtrosAplicados.push('Comprador contiene: "'+filtroComprador+'"');
+  if(filtroProducto)filtrosAplicados.push('Producto: '+filtroProducto);
 
   let totalCargado=0, totalCupo=0;
   const filas=ordenados.map(({c})=>{
@@ -439,6 +456,7 @@ function generarReporte(){
       <td>${c.patente||'—'}</td>
       <td>${c.fecha||'—'}</td>
       <td>${c.chofer||'—'}</td>
+      <td>${c.producto||'—'}</td>
       <td>${c.destino||'—'}</td>
       <td>${c.carta||'—'}</td>
       <td>${c.comprador||'—'}</td>
@@ -459,7 +477,7 @@ function generarReporte(){
     </div>
     <table>
       <thead><tr>
-        <th>Patente</th><th>Fecha</th><th>Chofer</th><th>Destino</th><th>Carta</th><th>Comprador</th><th>Lote</th>
+        <th>Patente</th><th>Fecha</th><th>Chofer</th><th>Producto</th><th>Destino</th><th>Carta</th><th>Comprador</th><th>Lote</th>
         <th>Cupo (kg)</th><th>Cargado (kg)</th><th>Dif. (kg)</th>
       </tr></thead>
       <tbody>${filas}</tbody>
@@ -479,6 +497,7 @@ function obtenerCamionesFiltrados(lista){
   if(filtroChofer)conIdx=conIdx.filter(({c})=>(c.chofer||'').toLowerCase().includes(filtroChofer));
   if(filtroLote)conIdx=conIdx.filter(({c})=>(c.lote||'').toLowerCase().includes(filtroLote));
   if(filtroComprador)conIdx=conIdx.filter(({c})=>(c.comprador||'').toLowerCase().includes(filtroComprador));
+  if(filtroProducto)conIdx=conIdx.filter(({c})=>c.producto===filtroProducto);
   return conIdx;
 }
 
