@@ -164,6 +164,10 @@ button.primary{background:var(--green);color:#fff;border-color:var(--green)}
           </select>
         </div>
       </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:6px 2px">
+        <input type="checkbox" id="agrupar-comprador" onchange="aplicarFiltrosCamiones()" style="width:auto;accent-color:var(--green)">
+        <label for="agrupar-comprador" style="margin-bottom:0;cursor:pointer">Agrupar por comprador</label>
+      </div>
       <button onclick="limpiarFiltrosCamiones()" style="background:transparent"><i class="ti ti-x"></i> Limpiar filtros</button>
       <button class="primary" onclick="generarReporte()" style="margin-top:8px"><i class="ti ti-file-download"></i> Generar reporte (PDF)</button>
     </div>
@@ -244,7 +248,7 @@ button.primary{background:var(--green);color:#fff;border-color:var(--green)}
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-09-18c
+    Monotolva — versión 2026-09-24
   </div>
 </div>
 
@@ -429,6 +433,7 @@ function limpiarFiltrosCamiones(){
   document.getElementById('filtro-lote').value='';
   document.getElementById('filtro-comprador').value='';
   document.getElementById('filtro-producto').value='';
+  document.getElementById('agrupar-comprador').checked=false;
   filtroFecha='';filtroDestino='';filtroCarta='';filtroChofer='';filtroLote='';filtroComprador='';filtroProducto='';
   renderCamiones(ultimoHistorialCamiones);
 }
@@ -436,7 +441,11 @@ function limpiarFiltrosCamiones(){
 function generarReporte(){
   const conIdx=obtenerCamionesFiltrados(ultimoHistorialCamiones);
   if(!conIdx.length){alert('No hay camiones que coincidan con el filtro actual para incluir en el reporte.');return;}
-  const ordenados=conIdx.slice().reverse();
+  let ordenados=conIdx.slice().reverse();
+  const agrupar=document.getElementById('agrupar-comprador') && document.getElementById('agrupar-comprador').checked;
+  if(agrupar){
+    ordenados=ordenados.slice().sort((a,b)=>(a.c.comprador||'Sin comprador').localeCompare(b.c.comprador||'Sin comprador'));
+  }
 
   const filtrosAplicados=[];
   if(filtroFecha)filtrosAplicados.push('Fecha: '+filtroFecha.split('-').reverse().join('/'));
@@ -446,13 +455,23 @@ function generarReporte(){
   if(filtroLote)filtrosAplicados.push('Lote contiene: "'+filtroLote+'"');
   if(filtroComprador)filtrosAplicados.push('Comprador contiene: "'+filtroComprador+'"');
   if(filtroProducto)filtrosAplicados.push('Producto: '+filtroProducto);
+  if(agrupar)filtrosAplicados.push('Agrupado por comprador');
 
   let totalCargado=0, totalCupo=0;
+  let compradorAnterior=null;
   const filas=ordenados.map(({c})=>{
     const diff=(c.cargado||0)-(c.cupo||0);
     totalCargado+=(c.cargado||0);
     totalCupo+=(c.cupo||0);
-    return `<tr>
+    let filaGrupo='';
+    if(agrupar){
+      const claveActual=c.comprador||'Sin comprador';
+      if(claveActual!==compradorAnterior){
+        compradorAnterior=claveActual;
+        filaGrupo=`<tr><td colspan="11" style="background:#eee;font-weight:800;padding-top:10px">${claveActual}</td></tr>`;
+      }
+    }
+    return filaGrupo+`<tr>
       <td>${c.patente||'—'}</td>
       <td>${c.fecha||'—'}</td>
       <td>${c.chofer||'—'}</td>
@@ -501,6 +520,41 @@ function obtenerCamionesFiltrados(lista){
   return conIdx;
 }
 
+function renderFilaCamion(c, idx, idDetalle){
+  const diff=(c.cargado||0)-(c.cupo||0);
+  const ok=Math.abs(diff)<200;
+  const descargas=(c.descargas||[]);
+  const filasDescargas=descargas.length ? descargas.map(d=>`
+      <div class="hist-row" style="padding-left:4px">
+        <span style="color:var(--muted)">#${d.num} · ${d.fecha||''} ${d.hora||''}${d.lote?' · <span style="color:var(--yellow)">'+d.lote+'</span>':''}</span>
+        <span style="font-weight:700">${fmt(Math.round(d.kg))} kg</span>
+      </div>`).join('') : '<div class="vacio" style="padding:8px 0">Sin descargas registradas</div>';
+  return `<div class="hist-row" style="flex-direction:column;align-items:stretch;gap:4px;cursor:pointer" onclick="toggleDetalle('${idDetalle}')">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <strong>${c.patente||'—'} <i class="ti ti-chevron-down" style="font-size:13px;color:var(--muted)"></i></strong>
+      <span style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:13px;font-weight:700;color:var(--text)">${fmt(Math.round(c.cargado||0))} kg</span>
+        <span class="pill ${ok?'verde':'azul'}">${diff>=0?'+':''}${fmt(Math.round(diff))} kg</span>
+        <button class="edit-btn" onclick="event.stopPropagation();abrirEdicionCamion(${idx})" title="Editar"><i class="ti ti-pencil"></i></button>
+      </span>
+    </div>
+    <div style="font-size:12px;color:var(--muted)">${c.producto||'—'} · ${c.fecha||'—'} · cupo ${fmt(c.cupo||0)} kg · Carta ${c.carta||'—'}${c.nombreDe?' · '+c.nombreDe:''}</div>
+    <div id="${idDetalle}" style="display:none;margin-top:6px;padding-top:8px;border-top:1px solid var(--border)" onclick="event.stopPropagation()">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px;line-height:1.6">
+        <b style="color:var(--text)">Chofer:</b> ${c.chofer||'—'}<br>
+        <b style="color:var(--text)">Empresa:</b> ${c.empresa||'—'}<br>
+        <b style="color:var(--text)">Destino:</b> ${c.destino||'—'}<br>
+        <b style="color:var(--text)">Lote(s):</b> ${c.lote||'—'}<br>
+        <b style="color:var(--text)">Comprador:</b> ${c.comprador||'—'}<br>
+        ${c.observaciones?`<b style="color:var(--text)">Observaciones:</b> ${c.observaciones}<br>`:''}
+        <b style="color:var(--text)">Total cargado:</b> ${fmt(Math.round(c.cargado||0))} kg (cupo ${fmt(c.cupo||0)} kg)
+      </div>
+      <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">Descargas registradas</div>
+      ${filasDescargas}
+    </div>
+  </div>`;
+}
+
 function renderCamiones(lista){
   const cont=document.getElementById('lista-camiones');
   ultimoHistorialCamiones=lista;
@@ -508,38 +562,33 @@ function renderCamiones(lista){
   const conIdx=obtenerCamionesFiltrados(lista);
   if(!conIdx.length){cont.innerHTML='<div class="vacio">Ningún camión coincide con el filtro.</div>';return;}
   const ordenada=conIdx.slice().reverse();
-  cont.innerHTML=ordenada.map(({c,idx},i)=>{
-    const diff=(c.cargado||0)-(c.cupo||0);
-    const ok=Math.abs(diff)<200;
-    const descargas=(c.descargas||[]);
-    const filasDescargas=descargas.length ? descargas.map(d=>`
-        <div class="hist-row" style="padding-left:4px">
-          <span style="color:var(--muted)">#${d.num} · ${d.fecha||''} ${d.hora||''}${d.lote?' · <span style="color:var(--yellow)">'+d.lote+'</span>':''}</span>
-          <span style="font-weight:700">${fmt(Math.round(d.kg))} kg</span>
-        </div>`).join('') : '<div class="vacio" style="padding:8px 0">Sin descargas registradas</div>';
-    return `<div class="hist-row" style="flex-direction:column;align-items:stretch;gap:4px;cursor:pointer" onclick="toggleDetalle('cam-${i}')">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <strong>${c.patente||'—'} <i class="ti ti-chevron-down" style="font-size:13px;color:var(--muted)"></i></strong>
-        <span style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:13px;font-weight:700;color:var(--text)">${fmt(Math.round(c.cargado||0))} kg</span>
-          <span class="pill ${ok?'verde':'azul'}">${diff>=0?'+':''}${fmt(Math.round(diff))} kg</span>
-          <button class="edit-btn" onclick="event.stopPropagation();abrirEdicionCamion(${idx})" title="Editar"><i class="ti ti-pencil"></i></button>
-        </span>
+
+  const agrupar=document.getElementById('agrupar-comprador') && document.getElementById('agrupar-comprador').checked;
+  if(!agrupar){
+    cont.innerHTML=ordenada.map(({c,idx},i)=>renderFilaCamion(c,idx,'cam-'+i)).join('');
+    return;
+  }
+
+  // Agrupado por comprador — mantiene el orden más reciente primero,
+  // pero juntando todo bajo la cabecera de cada comprador con su subtotal.
+  const grupos={};
+  const ordenGrupos=[];
+  ordenada.forEach(({c,idx})=>{
+    const clave=c.comprador||'Sin comprador';
+    if(!grupos[clave]){grupos[clave]={total:0,items:[]};ordenGrupos.push(clave);}
+    grupos[clave].total+=(c.cargado||0);
+    grupos[clave].items.push({c,idx});
+  });
+  let contadorFila=0;
+  cont.innerHTML=ordenGrupos.map(clave=>{
+    const g=grupos[clave];
+    const filas=g.items.map(({c,idx})=>renderFilaCamion(c,idx,'cam-'+(contadorFila++))).join('');
+    return `<div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;background:var(--panel-2);padding:8px 10px;border-radius:8px;margin-bottom:6px">
+        <span style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:0.3px">${clave}</span>
+        <span style="font-size:13px;font-weight:800;color:var(--green)">${fmt(Math.round(g.total))} kg · ${g.items.length} camión${g.items.length!==1?'es':''}</span>
       </div>
-      <div style="font-size:12px;color:var(--muted)">${c.producto||'—'} · ${c.fecha||'—'} · cupo ${fmt(c.cupo||0)} kg · Carta ${c.carta||'—'}${c.nombreDe?' · '+c.nombreDe:''}</div>
-      <div id="cam-${i}" style="display:none;margin-top:6px;padding-top:8px;border-top:1px solid var(--border)" onclick="event.stopPropagation()">
-        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;line-height:1.6">
-          <b style="color:var(--text)">Chofer:</b> ${c.chofer||'—'}<br>
-          <b style="color:var(--text)">Empresa:</b> ${c.empresa||'—'}<br>
-          <b style="color:var(--text)">Destino:</b> ${c.destino||'—'}<br>
-          <b style="color:var(--text)">Lote(s):</b> ${c.lote||'—'}<br>
-          <b style="color:var(--text)">Comprador:</b> ${c.comprador||'—'}<br>
-          ${c.observaciones?`<b style="color:var(--text)">Observaciones:</b> ${c.observaciones}<br>`:''}
-          <b style="color:var(--text)">Total cargado:</b> ${fmt(Math.round(c.cargado||0))} kg (cupo ${fmt(c.cupo||0)} kg)
-        </div>
-        <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">Descargas registradas</div>
-        ${filasDescargas}
-      </div>
+      ${filas}
     </div>`;
   }).join('');
 }
