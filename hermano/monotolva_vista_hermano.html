@@ -116,7 +116,9 @@ button.primary{background:var(--green);color:#fff;border-color:var(--green)}
     <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px">Por destino</div>
     <div id="tot-subtotales-dest" style="margin-bottom:12px"></div>
     <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px">Por quién cargó</div>
-    <div id="tot-subtotales-nombre"></div>
+    <div id="tot-subtotales-nombre" style="margin-bottom:12px"></div>
+    <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px">Por comprador</div>
+    <div id="tot-subtotales-comprador"></div>
   </div>
 
   <!-- HISTORIAL -->
@@ -248,7 +250,7 @@ button.primary{background:var(--green);color:#fff;border-color:var(--green)}
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-09-24
+    Monotolva — versión 2026-09-24b
   </div>
 </div>
 
@@ -400,6 +402,19 @@ function renderTotales(camiones, ensayos){
     <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-radius:8px;margin-bottom:5px;background:${NOMBRE_COLOR[k].bg}">
       <span style="font-size:12px;font-weight:700;color:${NOMBRE_COLOR[k].txt};text-transform:uppercase;letter-spacing:0.3px">${k}</span>
       <span style="font-size:14px;font-weight:800;color:${NOMBRE_COLOR[k].txt}">${fmt(Math.round(totNombre[k]))} kg</span>
+    </div>`).join('') : '<div class="vacio" style="padding:6px 0">Sin datos aún...</div>';
+
+  const totComprador={};
+  camiones.forEach(c=>{
+    const clave=c.comprador && c.comprador!=='—' ? c.comprador : null;
+    if(!clave)return;
+    totComprador[clave]=(totComprador[clave]||0)+(c.cargado||0);
+  });
+  const compradoresOrdenados=Object.keys(totComprador).sort((a,b)=>totComprador[b]-totComprador[a]);
+  document.getElementById('tot-subtotales-comprador').innerHTML = compradoresOrdenados.length ? compradoresOrdenados.map(k=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-radius:8px;margin-bottom:5px;background:var(--panel-2)">
+      <span style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:0.3px">${k}</span>
+      <span style="font-size:14px;font-weight:800;color:var(--green)">${fmt(Math.round(totComprador[k]))} kg</span>
     </div>`).join('') : '<div class="vacio" style="padding:6px 0">Sin datos aún...</div>';
 }
 
