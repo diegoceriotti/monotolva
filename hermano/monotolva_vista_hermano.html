@@ -250,7 +250,7 @@ button.primary{background:var(--green);color:#fff;border-color:var(--green)}
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-09-24b
+    Monotolva — versión 2026-09-24c
   </div>
 </div>
 
@@ -473,20 +473,26 @@ function generarReporte(){
   if(agrupar)filtrosAplicados.push('Agrupado por comprador');
 
   let totalCargado=0, totalCupo=0;
-  let compradorAnterior=null;
-  const filas=ordenados.map(({c})=>{
+  let compradorActual=null, subtotalGrupo=0;
+  const filasArr=[];
+  ordenados.forEach(({c},i)=>{
     const diff=(c.cargado||0)-(c.cupo||0);
     totalCargado+=(c.cargado||0);
     totalCupo+=(c.cupo||0);
-    let filaGrupo='';
     if(agrupar){
       const claveActual=c.comprador||'Sin comprador';
-      if(claveActual!==compradorAnterior){
-        compradorAnterior=claveActual;
-        filaGrupo=`<tr><td colspan="11" style="background:#eee;font-weight:800;padding-top:10px">${claveActual}</td></tr>`;
+      if(claveActual!==compradorActual){
+        // Cerramos el grupo anterior (si había uno) con su subtotal.
+        if(compradorActual!==null){
+          filasArr.push(`<tr><td colspan="7"></td><td colspan="3" style="text-align:right;font-weight:800;border-top:2px solid #000">Total ${compradorActual}: ${fmt(Math.round(subtotalGrupo))} kg</td></tr>`);
+        }
+        compradorActual=claveActual;
+        subtotalGrupo=0;
+        filasArr.push(`<tr><td colspan="11" style="background:#eee;font-weight:800;padding-top:10px">${claveActual}</td></tr>`);
       }
+      subtotalGrupo+=(c.cargado||0);
     }
-    return filaGrupo+`<tr>
+    filasArr.push(`<tr>
       <td>${c.patente||'—'}</td>
       <td>${c.fecha||'—'}</td>
       <td>${c.chofer||'—'}</td>
@@ -498,8 +504,13 @@ function generarReporte(){
       <td style="text-align:right">${fmt(Math.round(c.cupo||0))}</td>
       <td style="text-align:right">${fmt(Math.round(c.cargado||0))}</td>
       <td style="text-align:right">${diff>=0?'+':''}${fmt(Math.round(diff))}</td>
-    </tr>`;
-  }).join('');
+    </tr>`);
+  });
+  // Cerramos el último grupo con su subtotal.
+  if(agrupar && compradorActual!==null){
+    filasArr.push(`<tr><td colspan="7"></td><td colspan="3" style="text-align:right;font-weight:800;border-top:2px solid #000">Total ${compradorActual}: ${fmt(Math.round(subtotalGrupo))} kg</td></tr>`);
+  }
+  const filas=filasArr.join('');
 
   const ahora=new Date().toLocaleString('es-AR');
   document.getElementById('reporte-imprimir').innerHTML=`
