@@ -82,9 +82,30 @@ button.primary{background:var(--green);color:#fff;border-color:var(--green)}
   #reporte-imprimir .rep-meta{font-size:12px;color:#333;margin-bottom:14px}
   #reporte-imprimir .rep-total{font-size:14px;font-weight:800;margin-top:10px}
 }
+
+/* SPLASH SCREEN */
+#splash-screen{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity 0.6s ease}
+#splash-screen.splash-oculto{opacity:0;pointer-events:none}
+#splash-icon{width:140px;height:140px;border-radius:28px;box-shadow:0 8px 28px rgba(0,0,0,0.45)}
+#splash-title{font-size:20px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:var(--text);text-align:center}
+#splash-sub{font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);text-align:center}
 </style>
 </head>
 <body>
+<div id="splash-screen">
+  <img id="splash-icon" src="icon-rojo-192.png" alt="Monotolva">
+  <div id="splash-title">Monotolva Hno</div>
+  <div id="splash-sub">Ceriotti Desarrollos para el Agro</div>
+</div>
+<script>
+setTimeout(function(){
+  var sp = document.getElementById('splash-screen');
+  if(sp){
+    sp.classList.add('splash-oculto');
+    setTimeout(function(){ sp.remove(); }, 700);
+  }
+}, 2400);
+</script>
 <div class="wrap">
   <h1><i class="ti ti-tractor"></i> Monotolva</h1>
   <div class="subt"><span class="live-dot" id="conn-dot"></span><span id="conn-txt">conectando...</span></div>
@@ -250,7 +271,7 @@ button.primary{background:var(--green);color:#fff;border-color:var(--green)}
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-09-24c
+    Monotolva — versión 2026-10-01
   </div>
 </div>
 
