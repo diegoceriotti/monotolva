@@ -271,7 +271,7 @@ setTimeout(function(){
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-10-01
+    Monotolva — versión 2026-10-04
   </div>
 </div>
 
@@ -493,23 +493,21 @@ function generarReporte(){
   if(filtroProducto)filtrosAplicados.push('Producto: '+filtroProducto);
   if(agrupar)filtrosAplicados.push('Agrupado por comprador');
 
-  let totalCargado=0, totalCupo=0;
+  let totalCargado=0;
   let compradorActual=null, subtotalGrupo=0;
   const filasArr=[];
   ordenados.forEach(({c},i)=>{
-    const diff=(c.cargado||0)-(c.cupo||0);
     totalCargado+=(c.cargado||0);
-    totalCupo+=(c.cupo||0);
     if(agrupar){
       const claveActual=c.comprador||'Sin comprador';
       if(claveActual!==compradorActual){
         // Cerramos el grupo anterior (si había uno) con su subtotal.
         if(compradorActual!==null){
-          filasArr.push(`<tr><td colspan="7"></td><td colspan="3" style="text-align:right;font-weight:800;border-top:2px solid #000">Total ${compradorActual}: ${fmt(Math.round(subtotalGrupo))} kg</td></tr>`);
+          filasArr.push(`<tr><td colspan="8"></td><td colspan="2" style="text-align:right;font-weight:800;border-top:2px solid #000">Total ${compradorActual}: ${fmt(Math.round(subtotalGrupo))} kg</td></tr>`);
         }
         compradorActual=claveActual;
         subtotalGrupo=0;
-        filasArr.push(`<tr><td colspan="11" style="background:#eee;font-weight:800;padding-top:10px">${claveActual}</td></tr>`);
+        filasArr.push(`<tr><td colspan="10" style="background:#eee;font-weight:800;padding-top:10px">${claveActual}</td></tr>`);
       }
       subtotalGrupo+=(c.cargado||0);
     }
@@ -522,14 +520,13 @@ function generarReporte(){
       <td>${c.carta||'—'}</td>
       <td>${c.comprador||'—'}</td>
       <td>${c.lote||'—'}</td>
-      <td style="text-align:right">${fmt(Math.round(c.cupo||0))}</td>
+      <td>${c.nombreDe||'—'}</td>
       <td style="text-align:right">${fmt(Math.round(c.cargado||0))}</td>
-      <td style="text-align:right">${diff>=0?'+':''}${fmt(Math.round(diff))}</td>
     </tr>`);
   });
   // Cerramos el último grupo con su subtotal.
   if(agrupar && compradorActual!==null){
-    filasArr.push(`<tr><td colspan="7"></td><td colspan="3" style="text-align:right;font-weight:800;border-top:2px solid #000">Total ${compradorActual}: ${fmt(Math.round(subtotalGrupo))} kg</td></tr>`);
+    filasArr.push(`<tr><td colspan="8"></td><td colspan="2" style="text-align:right;font-weight:800;border-top:2px solid #000">Total ${compradorActual}: ${fmt(Math.round(subtotalGrupo))} kg</td></tr>`);
   }
   const filas=filasArr.join('');
 
@@ -544,12 +541,12 @@ function generarReporte(){
     <table>
       <thead><tr>
         <th>Patente</th><th>Fecha</th><th>Chofer</th><th>Producto</th><th>Destino</th><th>Carta</th><th>Comprador</th><th>Lote</th>
-        <th>Cupo (kg)</th><th>Cargado (kg)</th><th>Dif. (kg)</th>
+        <th>A nombre de</th><th>Cargado (kg)</th>
       </tr></thead>
       <tbody>${filas}</tbody>
     </table>
     <div class="rep-total">
-      Total cupo: ${fmt(Math.round(totalCupo))} kg &nbsp;·&nbsp; Total cargado: ${fmt(Math.round(totalCargado))} kg &nbsp;·&nbsp; Diferencia total: ${(totalCargado-totalCupo)>=0?'+':''}${fmt(Math.round(totalCargado-totalCupo))} kg
+      Total cargado: ${fmt(Math.round(totalCargado))} kg
     </div>`;
 
   setTimeout(()=>window.print(),150);
