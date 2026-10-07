@@ -101,6 +101,14 @@ button:disabled{opacity:0.35;cursor:not-allowed}
 #splash-icon{width:140px;height:140px;border-radius:28px;box-shadow:0 8px 28px rgba(0,0,0,0.45)}
 #splash-title{font-size:20px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:var(--text);text-align:center}
 #splash-sub{font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);text-align:center}
+
+/* LOGIN (nube) */
+#login-screen{display:none;position:fixed;inset:0;z-index:9000;background:var(--bg);align-items:center;justify-content:center;padding:1rem;overflow:auto}
+.login-box{width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px;text-align:center}
+.login-box img{width:96px;height:96px;border-radius:22px;margin:0 auto;box-shadow:0 6px 20px rgba(0,0,0,0.45)}
+.login-title{font-size:18px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase}
+.login-sub{font-size:12px;color:var(--muted)}
+.login-error{min-height:16px;font-size:12px;color:#ff8079;font-weight:700}
 </style>
 </head>
 <body>
@@ -118,6 +126,19 @@ setTimeout(function(){
   }
 }, 2400);
 </script>
+<div id="login-screen">
+  <div class="login-box">
+    <img src="icon-verde-192.png" alt="Monotolva">
+    <div class="login-title">Sistema Monotolva</div>
+    <div class="login-sub">Iniciá sesión para sincronizar con la nube</div>
+    <input id="login-email" type="email" autocomplete="username" placeholder="Email">
+    <input id="login-pass" type="password" autocomplete="current-password" placeholder="Contraseña">
+    <button class="primary" id="login-btn">Entrar</button>
+    <div class="login-error" id="login-error"></div>
+    <button id="login-skip">Seguir sin nube (solo en este equipo)</button>
+    <div class="login-sub">Sin sesión la balanza y el registro local funcionan igual; solo se pausa la sincronización.</div>
+  </div>
+</div>
 <div class="wrap">
   <h1><i class="ti ti-tractor"></i> Sistema Monotolva</h1>
 
@@ -694,11 +715,13 @@ setTimeout(function(){
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-10-01
+    Monotolva — versión 2026-10-07
   </div>
+  <div id="sesion-estado" style="text-align:center;font-size:11px;color:var(--muted);padding:0 0 1rem"></div>
 
 </div>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 <script>
 let estado={cupo:0,cargado:0,descargas:[],patente:'',chofer:'',carta:'',producto:'',empresa:'',fecha:'',nombreDe:''};
@@ -726,10 +749,64 @@ const firebaseConfig={
   messagingSenderId:"169072085835",
   appId:"1:169072085835:web:95b5ee155081ed3cb636ce"
 };
-let fbDb=null;
+let fbDb=null;          // queda en null hasta que haya una sesión iniciada: sin sesión no se toca la nube
+let fbUsuario=null;
+let usuarioElegioSinNube=false;
+
+function mostrarLogin(v){document.getElementById('login-screen').style.display=v?'flex':'none';}
+function textoErrorAuth(e){
+  const c=(e&&e.code)||'';
+  if(c==='auth/invalid-credential'||c==='auth/wrong-password'||c==='auth/user-not-found'||c==='auth/invalid-email')return 'Email o contraseña incorrectos.';
+  if(c==='auth/too-many-requests')return 'Demasiados intentos. Esperá unos minutos y probá de nuevo.';
+  if(c==='auth/network-request-failed')return 'Sin conexión: para iniciar sesión hace falta internet.';
+  return 'No se pudo iniciar sesión ('+(c||'error')+').';
+}
+function actualizarEstadoSesionUI(){
+  const el=document.getElementById('sesion-estado');
+  if(!el)return;
+  if(fbUsuario){
+    el.innerHTML='Sesión: '+(fbUsuario.email||'')+' · <a href="#" id="link-cerrar-sesion" style="color:var(--muted)">Cerrar sesión</a>';
+    document.getElementById('link-cerrar-sesion').addEventListener('click',ev=>{
+      ev.preventDefault();
+      firebase.auth().signOut().then(()=>location.reload());
+    });
+  }else{
+    el.innerHTML='Sin sesión (nube pausada) · <a href="#" id="link-iniciar-sesion" style="color:var(--muted)">Iniciar sesión</a>';
+    document.getElementById('link-iniciar-sesion').addEventListener('click',ev=>{ev.preventDefault();mostrarLogin(true);});
+  }
+}
 try{
   firebase.initializeApp(firebaseConfig);
-  fbDb=firebase.database();
+  firebase.auth().onAuthStateChanged(user=>{
+    fbUsuario=user||null;
+    if(user){
+      fbDb=firebase.database();
+      mostrarLogin(false);
+      // Igual que al arrancar: primero se trae lo de la nube y se mezcla con lo local, recién después se sube.
+      syncFirebaseHistorial();
+      syncFirebaseVivo();
+    }else{
+      fbDb=null;
+      if(!usuarioElegioSinNube)mostrarLogin(true);
+    }
+    actualizarEstadoSesionUI();
+  });
+  document.getElementById('login-btn').addEventListener('click',async()=>{
+    const btn=document.getElementById('login-btn'),err=document.getElementById('login-error');
+    err.textContent='';btn.disabled=true;
+    try{
+      await firebase.auth().signInWithEmailAndPassword(
+        document.getElementById('login-email').value.trim(),
+        document.getElementById('login-pass').value);
+    }catch(e){err.textContent=textoErrorAuth(e);}
+    btn.disabled=false;
+  });
+  document.getElementById('login-pass').addEventListener('keydown',ev=>{
+    if(ev.key==='Enter')document.getElementById('login-btn').click();
+  });
+  document.getElementById('login-skip').addEventListener('click',()=>{
+    usuarioElegioSinNube=true;mostrarLogin(false);
+  });
 }catch(e){console.warn('No se pudo iniciar Firebase (¿sin internet?):',e);}
 
 function mergearPorId(local, remoto){

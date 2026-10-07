@@ -89,6 +89,14 @@ button.primary{background:var(--green);color:#fff;border-color:var(--green)}
 #splash-icon{width:140px;height:140px;border-radius:28px;box-shadow:0 8px 28px rgba(0,0,0,0.45)}
 #splash-title{font-size:20px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:var(--text);text-align:center}
 #splash-sub{font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);text-align:center}
+
+/* LOGIN (nube) */
+#login-screen{display:none;position:fixed;inset:0;z-index:9000;background:var(--bg);align-items:center;justify-content:center;padding:1rem;overflow:auto}
+.login-box{width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px;text-align:center}
+.login-box img{width:96px;height:96px;border-radius:22px;margin:0 auto;box-shadow:0 6px 20px rgba(0,0,0,0.45)}
+.login-title{font-size:18px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase}
+.login-sub{font-size:12px;color:var(--muted)}
+.login-error{min-height:16px;font-size:12px;color:#ff8079;font-weight:700}
 </style>
 </head>
 <body>
@@ -106,6 +114,17 @@ setTimeout(function(){
   }
 }, 2400);
 </script>
+<div id="login-screen">
+  <div class="login-box">
+    <img src="icon-rojo-192.png" alt="Monotolva">
+    <div class="login-title">Monotolva Hno</div>
+    <div class="login-sub">Iniciá sesión para ver y editar las cargas</div>
+    <input id="login-email" type="email" autocomplete="username" placeholder="Email">
+    <input id="login-pass" type="password" autocomplete="current-password" placeholder="Contraseña">
+    <button class="primary" id="login-btn">Entrar</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
 <div class="wrap">
   <h1><i class="ti ti-tractor"></i> Monotolva</h1>
   <div class="subt"><span class="live-dot" id="conn-dot"></span><span id="conn-txt">conectando...</span></div>
@@ -271,13 +290,15 @@ setTimeout(function(){
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-10-04
+    Monotolva — versión 2026-10-07
   </div>
+  <div id="sesion-estado" style="text-align:center;font-size:11px;color:var(--muted);padding:0 0 1rem"></div>
 </div>
 
 <div id="reporte-imprimir"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 <script>
 const firebaseConfig={
@@ -312,6 +333,12 @@ const NOMBRE_COLOR={
   'Diego': {bg:'#3a2f10',txt:'#e0b84d'},
   'Hernán':{bg:'#132c33',txt:'#6fc2d6'}
 };
+
+// Las escuchas de la nube arrancan recién cuando hay una sesión iniciada (una sola vez).
+let escuchasIniciadas=false;
+function iniciarEscuchas(){
+if(escuchasIniciadas)return;
+escuchasIniciadas=true;
 
 // ── Indicador de conexión ───────────────────────────────
 db.ref('.info/connected').on('value', snap=>{
@@ -399,6 +426,46 @@ db.ref('historial').on('value', snap=>{
   renderSilobolsas(data.silobolsas||[]);
   renderEnsayos(data.ensayos||[]);
   renderTotales(data.camiones||[], data.ensayos||[]);
+});
+
+} // fin iniciarEscuchas
+
+// ── Login ───────────────────────────────────────────────
+function mostrarLogin(v){document.getElementById('login-screen').style.display=v?'flex':'none';}
+function textoErrorAuth(e){
+  const c=(e&&e.code)||'';
+  if(c==='auth/invalid-credential'||c==='auth/wrong-password'||c==='auth/user-not-found'||c==='auth/invalid-email')return 'Email o contraseña incorrectos.';
+  if(c==='auth/too-many-requests')return 'Demasiados intentos. Esperá unos minutos y probá de nuevo.';
+  if(c==='auth/network-request-failed')return 'Sin conexión: para iniciar sesión hace falta internet.';
+  return 'No se pudo iniciar sesión ('+(c||'error')+').';
+}
+firebase.auth().onAuthStateChanged(user=>{
+  const el=document.getElementById('sesion-estado');
+  if(user){
+    mostrarLogin(false);
+    iniciarEscuchas();
+    el.innerHTML='Sesión: '+(user.email||'')+' · <a href="#" id="link-cerrar-sesion" style="color:var(--muted)">Cerrar sesión</a>';
+    document.getElementById('link-cerrar-sesion').addEventListener('click',ev=>{
+      ev.preventDefault();
+      firebase.auth().signOut().then(()=>location.reload());
+    });
+  }else{
+    el.textContent='';
+    mostrarLogin(true);
+  }
+});
+document.getElementById('login-btn').addEventListener('click',async()=>{
+  const btn=document.getElementById('login-btn'),err=document.getElementById('login-error');
+  err.textContent='';btn.disabled=true;
+  try{
+    await firebase.auth().signInWithEmailAndPassword(
+      document.getElementById('login-email').value.trim(),
+      document.getElementById('login-pass').value);
+  }catch(e){err.textContent=textoErrorAuth(e);}
+  btn.disabled=false;
+});
+document.getElementById('login-pass').addEventListener('keydown',ev=>{
+  if(ev.key==='Enter')document.getElementById('login-btn').click();
 });
 
 function renderTotales(camiones, ensayos){
