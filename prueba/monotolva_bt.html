@@ -751,7 +751,7 @@ setTimeout(function(){
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-10-08 · lotes v4 (PRUEBA)
+    Monotolva — versión 2026-10-08 · lotes v5 (PRUEBA)
   </div>
   <div id="sesion-estado" style="text-align:center;font-size:11px;color:var(--muted);padding:0 0 1rem"></div>
 
@@ -1346,7 +1346,7 @@ function renderLotes(){
   let h=comp.length?comp.map(k=>`<div class="hist-row"><span>${k}</span><span style="display:flex;gap:8px;align-items:center"><b>${fmt(Math.round(tolvaComp[k]))} kg</b><button onclick="ajustarTolva(this.dataset.l)" data-l="${k.replace(/"/g,'&quot;')}" style="width:auto;padding:4px 7px;font-size:12px;background:transparent;border:1px solid var(--border)"><i class="ti ti-pencil"></i></button></span></div>`).join(''):'<div style="font-size:13px;color:var(--muted)">Tolva sin lotes registrados.</div>';
   if(pesoBT!=null){
     const dif=Math.round(pesoBT-sumComp);
-    h+=`<div style="font-size:12px;color:var(--muted);margin-top:8px">Balanza: ${fmt(Math.round(pesoBT))} kg · Anotado por lote: ${fmt(Math.round(sumComp))} kg`+(Math.abs(dif)>150?` · <span style="color:var(--yellow)">Sin asignar: ${fmt(dif)} kg</span>`:'')+'</div>'+(dif>150?`<button onclick="asignarSobrante(${dif})" style="margin-top:8px"><i class="ti ti-arrow-big-right-lines"></i> Asignar esos ${fmt(dif)} kg a un lote</button>`:'');
+    h+=`<div style="font-size:12px;color:var(--muted);margin-top:8px">Balanza: ${fmt(Math.round(pesoBT))} kg · Anotado por lote: ${fmt(Math.round(sumComp))} kg`+(Math.abs(dif)>150?` · <span style="color:var(--yellow)">Sin asignar: ${fmt(dif)} kg</span>`:'')+'</div>'+(dif>150?`<button onclick="asignarSobrante(${dif})" style="margin-top:8px"><i class="ti ti-arrow-big-right-lines"></i> Asignar esos ${fmt(dif)} kg a un lote</button>`:'')+(dif<-150&&sumComp>0?`<button onclick="ajustarLotesABalanza()" style="margin-top:8px"><i class="ti ti-scale"></i> Ajustar lotes a la balanza (${fmt(Math.round(pesoBT))} kg)</button>`:'');
   }
   document.getElementById('tolva-comp').innerHTML=h;
   const ks=Object.keys(tot);
@@ -1374,6 +1374,15 @@ function asignarSobrante(kg){
     hora:ahora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),ultimaEdicion:Date.now()});
   tolvaComp[nom]=(tolvaComp[nom]||0)+Math.round(kg);
   if(!lotesHas[nom])lotesHas[nom]={v:0,ts:Date.now()};
+  guardarLotes();renderLotes();
+}
+
+function ajustarLotesABalanza(){
+  const sum=Object.values(tolvaComp).reduce((a,b)=>a+b,0);
+  if(!sum||pesoBT==null)return;
+  if(!confirm('Se reparte lo que marca la balanza ('+fmt(Math.round(pesoBT))+' kg) entre los lotes en la misma proporción. ¿Ajustar?'))return;
+  const f=Math.max(0,pesoBT)/sum;
+  Object.keys(tolvaComp).forEach(k=>{tolvaComp[k]=Math.round(tolvaComp[k]*f);if(tolvaComp[k]<=0)delete tolvaComp[k];});
   guardarLotes();renderLotes();
 }
 function actualizarLoteLive(){
