@@ -582,6 +582,13 @@ setTimeout(function(){
   <!-- ══════════════ MODO LOTES ══════════════ -->
   <div id="modo-lotes" style="display:none">
     <div class="card">
+      <div class="card-title"><i class="ti ti-seeding"></i> Campaña</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="sel-camp" onchange="cambiarCamp(this.value)" style="flex:1"></select>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Se elige una sola vez (ej: Trigo 26) y todo lo que cargues queda en esa campaña hasta que la cambies.</div>
+    </div>
+    <div class="card">
       <div class="card-title"><i class="ti ti-tractor"></i> Ingreso a la tolva por lote</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Elegí el lote, tocá <b>Iniciar lote</b> y cargá la tolva. Al terminar tocá <b>Cerrar lote</b>: los kg quedan anotados en ese lote. Podés volver a un lote cuando quieras y sigue sumando.</div>
       <label>Lote</label>
@@ -751,7 +758,7 @@ setTimeout(function(){
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-10-08 · lotes v5 (PRUEBA)
+    Monotolva — versión 2026-10-08 · lotes v6 (PRUEBA)
   </div>
   <div id="sesion-estado" style="text-align:center;font-size:11px;color:var(--muted);padding:0 0 1rem"></div>
 
@@ -1219,15 +1226,36 @@ let lotesHas={};        // {nombre:{v:has, ts}}
 let ingresosLote=[];    // [{id,lote,kg,fecha,hora,ultimaEdicion,borrado?}]
 let tolvaComp={};       // {nombre:kg} lo que hay ahora en la tolva, por lote
 let loteIniciado=null;  // {lote, base} mientras se está cargando un lote
+let campActual='';      // campaña activa (ej: "Trigo 26"); se mantiene hasta que se cambie
+const SEP='¦';
+function hk(l){return campActual+SEP+l;}
+function getHas(l){const x=lotesHas[hk(l)];return (x&&x.v)||0;}
+function setHas(l,v){lotesHas[hk(l)]={v,ts:Date.now()};}
+function ensureHas(l){if(!lotesHas[hk(l)])setHas(l,0);}
+function hasDeCamp(){const pre=campActual+SEP;return Object.keys(lotesHas).filter(k=>k.startsWith(pre)).map(k=>k.slice(pre.length));}
+function ingDeCamp(){return ingresosLote.filter(i=>!i.borrado&&(i.camp||'')===campActual);}
+function normTxt(t){return (t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
+function camionEsDeCamp(c){
+  if(!campActual)return true;
+  const prod=normTxt(c.producto);if(!prod)return true;
+  return normTxt(campActual).includes(prod);
+}
+function listaCamps(){
+  const set=new Set();
+  ingresosLote.forEach(i=>{if(!i.borrado)set.add(i.camp||'');});
+  Object.keys(lotesHas).forEach(k=>set.add(k.split(SEP)[0]));
+  set.add(campActual);
+  return [...set];
+}
 
 function cargarLotes(){
   try{
     const d=JSON.parse(localStorage.getItem(LS_KEY_LOTES)||'null');
-    if(d){lotesHas=d.lotesHas||{};ingresosLote=d.ingresosLote||[];tolvaComp=d.tolvaComp||{};loteIniciado=d.loteIniciado||null;}
+    if(d){lotesHas=d.lotesHas||{};ingresosLote=d.ingresosLote||[];tolvaComp=d.tolvaComp||{};loteIniciado=d.loteIniciado||null;campActual=d.campActual||'';}
   }catch(e){console.warn('No se pudieron leer los lotes:',e);}
 }
 function guardarLotes(){
-  try{localStorage.setItem(LS_KEY_LOTES,JSON.stringify({lotesHas,ingresosLote,tolvaComp,loteIniciado}));}catch(e){}
+  try{localStorage.setItem(LS_KEY_LOTES,JSON.stringify({lotesHas,ingresosLote,tolvaComp,loteIniciado,campActual}));}catch(e){}
   syncFirebaseLotes();
 }
 function syncFirebaseLotes(){
@@ -1238,7 +1266,7 @@ function syncFirebaseLotes(){
       ingresosLote=mergearPorId(ingresosLote,r.ingresos);
       Object.keys(r.has||{}).forEach(k=>{const x=r.has[k];if(x&&(!lotesHas[k]||(x.ts||0)>(lotesHas[k].ts||0)))lotesHas[k]=x;});
       if(!Object.keys(tolvaComp).length && r.tolva)tolvaComp=r.tolva;
-      try{localStorage.setItem(LS_KEY_LOTES,JSON.stringify({lotesHas,ingresosLote,tolvaComp,loteIniciado}));}catch(e){}
+      try{localStorage.setItem(LS_KEY_LOTES,JSON.stringify({lotesHas,ingresosLote,tolvaComp,loteIniciado,campActual}));}catch(e){}
       fbDb.ref('lotes').set({ingresos:ingresosLote,has:lotesHas,tolva:tolvaComp,actualizado:Date.now()}).catch(()=>{});
       renderLotes();
     }).catch(e=>console.warn('Lotes: no se pudo leer la nube:',e.message));
@@ -1247,12 +1275,13 @@ function syncFirebaseLotes(){
 function nombreLoteCanon(n){
   n=(n||'').trim();if(!n)return '';
   const low=n.toLowerCase();
-  const todos=new Set([...Object.keys(lotesHas),...ingresosLote.map(i=>i.lote),...Object.keys(tolvaComp)]);
+  const todos=new Set([...hasDeCamp(),...ingDeCamp().map(i=>i.lote),...Object.keys(tolvaComp)]);
   for(const k of todos){if(k.toLowerCase()===low)return k;}
   return n;
 }
 function iniciarLote(){
   if(loteIniciado){alert('Ya hay un lote en carga. Cerralo primero.');return;}
+  if(!campActual){alert('Primero elegí o creá la campaña (ej: Trigo 26) arriba de todo.');return;}
   if(pesoBT===null||pesoBT===undefined){alert('No hay lectura de balanza. Conectá el Bluetooth.');return;}
   const nom=nombreLoteCanon(document.getElementById('lote-ingreso').value);
   if(!nom){alert('Escribí o elegí el lote.');return;}
@@ -1267,11 +1296,11 @@ function cerrarLote(){
     loteIniciado=null;guardarLotes();renderLotes();return;
   }
   const ahora=new Date();
-  ingresosLote.push({id:generarIdRegistro(),lote:loteIniciado.lote,kg,
+  ingresosLote.push({id:generarIdRegistro(),camp:campActual,lote:loteIniciado.lote,kg,
     fecha:ahora.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}),
     hora:ahora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),ultimaEdicion:Date.now()});
   tolvaComp[loteIniciado.lote]=(tolvaComp[loteIniciado.lote]||0)+kg;
-  if(!lotesHas[loteIniciado.lote])lotesHas[loteIniciado.lote]={v:0,ts:Date.now()};
+  ensureHas(loteIniciado.lote);
   loteIniciado=null;
   guardarLotes();renderLotes();
 }
@@ -1299,10 +1328,10 @@ function ajustarTolva(lote){
   guardarLotes();renderLotes();
 }
 function editarHas(lote){
-  const v=prompt('Hectáreas de "'+lote+'":',(lotesHas[lote]&&lotesHas[lote].v)||'');
+  const v=prompt('Hectáreas de "'+lote+'":',getHas(lote)||'');
   if(v===null)return;const n=parseFloat(String(v).replace(',','.'));
   if(isNaN(n)||n<0){alert('Valor inválido.');return;}
-  lotesHas[lote]={v:n,ts:Date.now()};guardarLotes();renderLotes();
+  setHas(lote,n);guardarLotes();renderLotes();
 }
 function editarIngreso(id){
   const i=ingresosLote.find(x=>x.id===id);if(!i)return;
@@ -1318,9 +1347,9 @@ function borrarIngreso(id){
 function totalesLotes(){
   const t={};
   const g=n=>t[n]||(t[n]={ingresado:0,camiones:0});
-  Object.keys(lotesHas).forEach(g);
-  ingresosLote.filter(i=>!i.borrado).forEach(i=>{g(i.lote).ingresado+=i.kg;});
-  cargasDelDia.forEach(c=>{
+  hasDeCamp().forEach(g);
+  ingDeCamp().forEach(i=>{g(i.lote).ingresado+=i.kg;});
+  cargasDelDia.filter(camionEsDeCamp).forEach(c=>{
     if(c.descargas&&c.descargas.length)c.descargas.forEach(d=>{const n=d.lote||c.lote;if(n&&n!=='—')g(n).camiones+=d.kg;});
     else if(c.lote&&c.lote!=='—')g(c.lote).camiones+=c.cargado||0;
   });
@@ -1338,6 +1367,8 @@ function renderLotes(){
   if(linea)linea.textContent=comp.length?'En tolva: '+comp.map(k=>k+' '+fmt(Math.round(tolvaComp[k]))+' kg').join(' · ')+' — la descarga se reparte sola':'';
   const modo=document.getElementById('modo-lotes');
   if(!modo||modo.style.display==='none')return;
+  const sc=document.getElementById('sel-camp');
+  if(sc){sc.innerHTML=listaCamps().map(c=>'<option value="'+c.replace(/"/g,'&quot;')+'"'+(c===campActual?' selected':'')+'>'+(c||'(sin campaña)')+'</option>').join('')+'<option value="__nueva__">+ Nueva campaña…</option>';}
   document.getElementById('lote-live').style.display=loteIniciado?'block':'none';
   document.getElementById('btn-iniciar-lote').disabled=!!loteIniciado;
   document.getElementById('btn-cerrar-lote').disabled=!loteIniciado;
@@ -1352,14 +1383,14 @@ function renderLotes(){
   const ks=Object.keys(tot);
   let tb='';let gk=0,gh=0;
   ks.forEach(k=>{
-    const x=tot[k],total=Math.max(x.ingresado,x.camiones),has=(lotesHas[k]&&lotesHas[k].v)||0;
+    const x=tot[k],total=Math.max(x.ingresado,x.camiones),has=getHas(k);
     gk+=total;gh+=has;
     const rinde=has>0?Math.round(total/has):null;
     tb+=`<tr><td>${k}</td><td style="text-align:right"><button data-l="${k.replace(/"/g,'&quot;')}" onclick="editarHas(this.dataset.l)" style="width:auto;padding:3px 8px;font-size:13px;background:transparent;border:1px solid var(--border)">${has?fmt(has):'+ has'}</button></td><td style="text-align:right">${fmt(Math.round(x.ingresado))}</td><td style="text-align:right">${fmt(Math.round(x.camiones))}</td><td style="text-align:right;font-weight:700">${fmt(Math.round(total))}</td><td style="text-align:right;font-weight:800;color:var(--green)">${rinde!==null?fmt(rinde):'—'}</td></tr>`;
   });
   if(ks.length>1&&gh>0)tb+=`<tr style="border-top:1px solid var(--border)"><td><b>Total</b></td><td style="text-align:right"><b>${fmt(gh)}</b></td><td></td><td></td><td style="text-align:right"><b>${fmt(Math.round(gk))}</b></td><td style="text-align:right;color:var(--green)"><b>${fmt(Math.round(gk/gh))}</b></td></tr>`;
   document.getElementById('tabla-lotes').innerHTML=ks.length?`<div style="overflow-x:auto"><table style="width:100%;font-size:13px;border-collapse:collapse"><thead><tr style="color:var(--muted);font-size:11px;text-align:right"><th style="text-align:left">Lote</th><th>Has</th><th>Ingresó</th><th>Camiones</th><th>Total kg</th><th>Rinde kg/ha</th></tr></thead><tbody>${tb}</tbody></table></div>`:'<div style="font-size:13px;color:var(--muted)">Todavía no hay lotes.</div>';
-  const ing=ingresosLote.filter(i=>!i.borrado).slice().reverse();
+  const ing=ingDeCamp().slice().reverse();
   document.getElementById('lista-ingresos').innerHTML=ing.length?ing.map(i=>`<div class="hist-row"><span style="color:var(--muted)">${i.fecha} ${i.hora} <span style="color:var(--yellow)">${i.lote}</span></span><span style="display:flex;gap:6px;align-items:center"><b>${fmt(Math.round(i.kg))} kg</b><button onclick="editarIngreso('${i.id}')" style="width:auto;padding:4px 7px;font-size:12px;background:transparent;border:1px solid var(--border)"><i class="ti ti-pencil"></i></button><button onclick="borrarIngreso('${i.id}')" style="width:auto;padding:4px 7px;font-size:12px;background:transparent;border:1px solid var(--border)"><i class="ti ti-trash"></i></button></span></div>`).join(''):'<div style="font-size:13px;color:var(--muted)">Sin ingresos aún...</div>';
 }
 
@@ -1369,11 +1400,11 @@ function asignarSobrante(kg){
   if(n===null)return;
   const nom=nombreLoteCanon(n);if(!nom)return;
   const ahora=new Date();
-  ingresosLote.push({id:generarIdRegistro(),lote:nom,kg:Math.round(kg),
+  ingresosLote.push({id:generarIdRegistro(),camp:campActual,lote:nom,kg:Math.round(kg),
     fecha:ahora.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}),
     hora:ahora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),ultimaEdicion:Date.now()});
   tolvaComp[nom]=(tolvaComp[nom]||0)+Math.round(kg);
-  if(!lotesHas[nom])lotesHas[nom]={v:0,ts:Date.now()};
+  ensureHas(nom);
   guardarLotes();renderLotes();
 }
 
@@ -1383,6 +1414,29 @@ function ajustarLotesABalanza(){
   if(!confirm('Se reparte lo que marca la balanza ('+fmt(Math.round(pesoBT))+' kg) entre los lotes en la misma proporción. ¿Ajustar?'))return;
   const f=Math.max(0,pesoBT)/sum;
   Object.keys(tolvaComp).forEach(k=>{tolvaComp[k]=Math.round(tolvaComp[k]*f);if(tolvaComp[k]<=0)delete tolvaComp[k];});
+  guardarLotes();renderLotes();
+}
+
+function cambiarCamp(v){
+  const sel=document.getElementById('sel-camp');
+  if(v==='__nueva__'){
+    const n=prompt('Nombre de la campaña (ej: Trigo 26):','');
+    if(!n||!n.trim()){renderLotes();return;}
+    v=n.trim();
+  }
+  if(v===campActual)return;
+  if(loteIniciado){alert('Cerrá el lote en carga antes de cambiar de campaña.');renderLotes();return;}
+  if(Object.values(tolvaComp).some(x=>x>0)){
+    if(!confirm('En la tolva hay grano anotado de la campaña actual. ¿Vaciar la tolva y cambiar a "'+v+'"?')){renderLotes();return;}
+    tolvaComp={};
+  }
+  // lo cargado antes de usar campañas (sin nombre) pasa a la primera campaña que se cree
+  const hayViejo=campActual===''&&(ingresosLote.some(i=>!i.borrado&&!(i.camp))||Object.keys(lotesHas).some(k=>k.startsWith(SEP)));
+  if(hayViejo&&!listaCamps().some(c=>c&&c===v)&&confirm('Ya hay lotes cargados sin campaña. ¿Son de "'+v+'"?')){
+    ingresosLote.forEach(i=>{if(!i.camp){i.camp=v;i.ultimaEdicion=Date.now();}});
+    Object.keys(lotesHas).filter(k=>k.startsWith(SEP)).forEach(k=>{lotesHas[v+SEP+k.slice(1)]=lotesHas[k];delete lotesHas[k];});
+  }
+  campActual=v;
   guardarLotes();renderLotes();
 }
 function actualizarLoteLive(){
