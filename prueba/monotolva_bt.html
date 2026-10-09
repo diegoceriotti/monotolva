@@ -185,6 +185,7 @@ setTimeout(function(){
     <button class="nav-tab" id="tab-silobolsa" onclick="cambiarModo('silobolsa')"><i class="ti ti-package"></i> Silobolsa</button>
     <button class="nav-tab" id="tab-ensayo" onclick="cambiarModo('ensayo')"><i class="ti ti-flask"></i> Ensayo</button>
     <button class="nav-tab" id="tab-calibracion" onclick="cambiarModo('calibracion')"><i class="ti ti-adjustments"></i> Calibración</button>
+    <button class="nav-tab" id="tab-lotes" onclick="cambiarModo('lotes')"><i class="ti ti-map-2"></i> Lotes</button>
     <button class="nav-tab" id="tab-resumen" onclick="cambiarModo('resumen')"><i class="ti ti-calendar-stats"></i> Resumen</button>
   </div>
 
@@ -364,6 +365,8 @@ setTimeout(function(){
         <div style="margin-bottom:12px">
           <label>Lote actual (cambialo si cambia el origen)</label>
           <input id="lote-actual-camion" placeholder="Ej: Lote 12 - El Fortín">
+          <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;text-transform:none;letter-spacing:0;color:var(--text)"><input type="checkbox" id="camion-desde-silo" onchange="try{localStorage.setItem('monotolva_desde_silo',this.checked?'1':'')}catch(e){}" style="width:auto"> Cargando DESDE SILOBOLSA (no repartir por lotes de la tolva)</label>
+          <div id="tolva-comp-camion" style="font-size:12px;color:var(--yellow);margin-top:6px"></div>
         </div>
 
         <div class="grid2-btn" style="margin-bottom:10px">
@@ -490,6 +493,7 @@ setTimeout(function(){
           <div class="ensayo-peso-unit">kg bajando ahora</div>
           <button class="danger" style="margin-top:8px;font-size:11px;padding:8px" onclick="cancelarDescargaBolsa()"><i class="ti ti-x"></i> Cancelar (no registrar nada)</button>
         </div>
+        <div id="tolva-comp-sb" style="font-size:12px;color:var(--yellow);margin-top:8px"></div>
         <div style="font-size:12px;color:var(--muted);margin-top:8px">Marcá "Inicio descarga" antes de volcar la tolva en la bolsa y "Fin descarga" cuando termines: se suma automáticamente lo que bajó, con el lote que esté puesto arriba.</div>
       </div>
 
@@ -575,6 +579,38 @@ setTimeout(function(){
   </div>
 
   <!-- ══════════════ MODO RESUMEN DEL DÍA ══════════════ -->
+  <!-- ══════════════ MODO LOTES ══════════════ -->
+  <div id="modo-lotes" style="display:none">
+    <div class="card">
+      <div class="card-title"><i class="ti ti-tractor"></i> Ingreso a la tolva por lote</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Elegí el lote, tocá <b>Iniciar lote</b> y cargá la tolva. Al terminar tocá <b>Cerrar lote</b>: los kg quedan anotados en ese lote. Podés volver a un lote cuando quieras y sigue sumando.</div>
+      <label>Lote</label>
+      <input id="lote-ingreso" list="lista-lotes" placeholder="Ej: Lote X" autocomplete="off">
+      <datalist id="lista-lotes"></datalist>
+      <div id="lote-live" style="display:none;margin:12px 0;padding:12px;border:1px solid var(--green);border-radius:8px;text-align:center">
+        <div style="font-size:12px;color:var(--muted)">Cargando en <b id="lote-live-nombre"></b></div>
+        <div style="font-size:34px;font-weight:800;color:var(--green)"><span id="lote-live-kg">0</span> kg</div>
+      </div>
+      <div class="grid2-btn" style="margin-top:10px">
+        <button onclick="iniciarLote()" id="btn-iniciar-lote"><i class="ti ti-player-play"></i> Iniciar lote</button>
+        <button class="blue" onclick="cerrarLote()" id="btn-cerrar-lote" disabled><i class="ti ti-player-stop"></i> Cerrar lote</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><i class="ti ti-box-multiple"></i> Qué hay en la tolva ahora</div>
+      <div id="tolva-comp"></div>
+      <button class="danger" onclick="if(confirm('¿Vaciar la tolva (poner todos los lotes en 0)?')){tolvaComp={};guardarLotes();renderLotes();}" style="margin-top:10px"><i class="ti ti-trash"></i> Vaciar tolva</button>
+    </div>
+    <div class="card">
+      <div class="card-title"><i class="ti ti-chart-bar"></i> Totales por lote y rinde</div>
+      <div id="tabla-lotes"></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px">Total = lo mayor entre lo ingresado a tolva y lo despachado en camiones cerrados. Rinde = Total ÷ hectáreas.</div>
+      <hr class="sep">
+      <div class="card-title" style="font-size:13px"><i class="ti ti-list"></i> Ingresos registrados</div>
+      <div id="lista-ingresos"></div>
+    </div>
+  </div>
+
   <div id="modo-resumen" style="display:none">
     <div class="card">
       <div class="card-title"><i class="ti ti-calendar-stats"></i> Totales acumulados</div>
@@ -840,6 +876,7 @@ function mergearPorId(local, remoto){
 
 function syncFirebaseHistorial(){
   if(!fbDb)return;
+  if(typeof syncFirebaseLotes==='function')syncFirebaseLotes();
   try{
     fbDb.ref('historial').once('value').then(snap=>{
       const actual=snap.val()||{};
@@ -1176,7 +1213,166 @@ setInterval(()=>{
   }
 }, 200);
 
+// ══════════ LOTES: ingreso por lote (tara virtual), tolva por lote, rinde ══════════
+const LS_KEY_LOTES='monotolva_lotes';
+let lotesHas={};        // {nombre:{v:has, ts}}
+let ingresosLote=[];    // [{id,lote,kg,fecha,hora,ultimaEdicion,borrado?}]
+let tolvaComp={};       // {nombre:kg} lo que hay ahora en la tolva, por lote
+let loteIniciado=null;  // {lote, base} mientras se está cargando un lote
+
+function cargarLotes(){
+  try{
+    const d=JSON.parse(localStorage.getItem(LS_KEY_LOTES)||'null');
+    if(d){lotesHas=d.lotesHas||{};ingresosLote=d.ingresosLote||[];tolvaComp=d.tolvaComp||{};loteIniciado=d.loteIniciado||null;}
+  }catch(e){console.warn('No se pudieron leer los lotes:',e);}
+}
+function guardarLotes(){
+  try{localStorage.setItem(LS_KEY_LOTES,JSON.stringify({lotesHas,ingresosLote,tolvaComp,loteIniciado}));}catch(e){}
+  syncFirebaseLotes();
+}
+function syncFirebaseLotes(){
+  if(!fbDb)return;
+  try{
+    fbDb.ref('lotes').once('value').then(snap=>{
+      const r=snap.val()||{};
+      ingresosLote=mergearPorId(ingresosLote,r.ingresos);
+      Object.keys(r.has||{}).forEach(k=>{const x=r.has[k];if(x&&(!lotesHas[k]||(x.ts||0)>(lotesHas[k].ts||0)))lotesHas[k]=x;});
+      if(!Object.keys(tolvaComp).length && r.tolva)tolvaComp=r.tolva;
+      try{localStorage.setItem(LS_KEY_LOTES,JSON.stringify({lotesHas,ingresosLote,tolvaComp,loteIniciado}));}catch(e){}
+      fbDb.ref('lotes').set({ingresos:ingresosLote,has:lotesHas,tolva:tolvaComp,actualizado:Date.now()}).catch(()=>{});
+      renderLotes();
+    }).catch(e=>console.warn('Lotes: no se pudo leer la nube:',e.message));
+  }catch(e){console.warn('Lotes sync:',e);}
+}
+function nombreLoteCanon(n){
+  n=(n||'').trim();if(!n)return '';
+  const low=n.toLowerCase();
+  const todos=new Set([...Object.keys(lotesHas),...ingresosLote.map(i=>i.lote),...Object.keys(tolvaComp)]);
+  for(const k of todos){if(k.toLowerCase()===low)return k;}
+  return n;
+}
+function iniciarLote(){
+  if(loteIniciado){alert('Ya hay un lote en carga. Cerralo primero.');return;}
+  if(pesoBT===null||pesoBT===undefined){alert('No hay lectura de balanza. Conectá el Bluetooth.');return;}
+  const nom=nombreLoteCanon(document.getElementById('lote-ingreso').value);
+  if(!nom){alert('Escribí o elegí el lote.');return;}
+  loteIniciado={lote:nom,base:pesoBT};
+  guardarLotes();renderLotes();
+}
+function cerrarLote(){
+  if(!loteIniciado)return;
+  const kg=Math.round((pesoBT||0)-loteIniciado.base);
+  if(kg<=0){
+    if(!confirm('No se detectó aumento de peso. ¿Cancelar este lote sin guardar nada?'))return;
+    loteIniciado=null;guardarLotes();renderLotes();return;
+  }
+  const ahora=new Date();
+  ingresosLote.push({id:generarIdRegistro(),lote:loteIniciado.lote,kg,
+    fecha:ahora.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}),
+    hora:ahora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),ultimaEdicion:Date.now()});
+  tolvaComp[loteIniciado.lote]=(tolvaComp[loteIniciado.lote]||0)+kg;
+  if(!lotesHas[loteIniciado.lote])lotesHas[loteIniciado.lote]={v:0,ts:Date.now()};
+  loteIniciado=null;
+  guardarLotes();renderLotes();
+}
+function cancelarLote(){ if(loteIniciado&&confirm('¿Cancelar la carga en curso sin guardar?')){loteIniciado=null;guardarLotes();renderLotes();} }
+function repartirDescargaPorLotes(real){
+  const ks=Object.keys(tolvaComp).filter(k=>tolvaComp[k]>0);
+  const total=ks.reduce((s,k)=>s+tolvaComp[k],0);
+  if(!ks.length||total<=0)return null;
+  let acum=0;const out=[];
+  ks.forEach((k,i)=>{
+    let kg=(i===ks.length-1)?real-acum:Math.round(real*tolvaComp[k]/total*10)/10;
+    acum+=kg;
+    out.push({lote:k,kg});
+    tolvaComp[k]=Math.max(0,tolvaComp[k]-kg);
+  });
+  const resto=Object.values(tolvaComp).reduce((s,v)=>s+v,0);
+  if(resto<30)tolvaComp={};else Object.keys(tolvaComp).forEach(k=>{if(tolvaComp[k]<=0)delete tolvaComp[k];});
+  guardarLotes();renderLotes();
+  return out.filter(o=>o.kg>0);
+}
+function ajustarTolva(lote){
+  const v=prompt('Corregir kg de "'+lote+'" en la tolva (0 para vaciar):',Math.round(tolvaComp[lote]||0));
+  if(v===null)return;const n=parseFloat(v);if(isNaN(n)||n<0)return;
+  if(n===0)delete tolvaComp[lote];else tolvaComp[lote]=n;
+  guardarLotes();renderLotes();
+}
+function editarHas(lote){
+  const v=prompt('Hectáreas de "'+lote+'":',(lotesHas[lote]&&lotesHas[lote].v)||'');
+  if(v===null)return;const n=parseFloat(String(v).replace(',','.'));
+  if(isNaN(n)||n<0){alert('Valor inválido.');return;}
+  lotesHas[lote]={v:n,ts:Date.now()};guardarLotes();renderLotes();
+}
+function editarIngreso(id){
+  const i=ingresosLote.find(x=>x.id===id);if(!i)return;
+  const v=prompt('Corregir kg del ingreso ('+i.lote+'):',i.kg);if(v===null)return;
+  const n=parseFloat(v);if(!n||n<=0){alert('Valor inválido.');return;}
+  i.kg=n;i.ultimaEdicion=Date.now();guardarLotes();renderLotes();
+}
+function borrarIngreso(id){
+  const i=ingresosLote.find(x=>x.id===id);if(!i)return;
+  if(!confirm('¿Borrar este ingreso de '+fmt(i.kg)+' kg en '+i.lote+'? (No cambia lo que hay en tolva)'))return;
+  i.borrado=true;i.ultimaEdicion=Date.now();guardarLotes();renderLotes();
+}
+function totalesLotes(){
+  const t={};
+  const g=n=>t[n]||(t[n]={ingresado:0,camiones:0});
+  Object.keys(lotesHas).forEach(g);
+  ingresosLote.filter(i=>!i.borrado).forEach(i=>{g(i.lote).ingresado+=i.kg;});
+  cargasDelDia.forEach(c=>{
+    if(c.descargas&&c.descargas.length)c.descargas.forEach(d=>{const n=d.lote||c.lote;if(n&&n!=='—')g(n).camiones+=d.kg;});
+    else if(c.lote&&c.lote!=='—')g(c.lote).camiones+=c.cargado||0;
+  });
+  return t;
+}
+function renderLotes(){
+  const dl=document.getElementById('lista-lotes');
+  const tot=totalesLotes();
+  if(dl)dl.innerHTML=Object.keys(tot).map(k=>'<option value="'+k.replace(/"/g,'&quot;')+'">').join('');
+  // línea chica en la pantalla del camión
+  const comp=Object.keys(tolvaComp).filter(k=>tolvaComp[k]>0);
+  const linea=document.getElementById('tolva-comp-camion');
+  const lsb=document.getElementById('tolva-comp-sb');
+  if(lsb)lsb.textContent=comp.length?'En tolva: '+comp.map(k=>k+' '+fmt(Math.round(tolvaComp[k]))+' kg').join(' · ')+' — el aporte se reparte solo por lote':'';
+  if(linea)linea.textContent=comp.length?'En tolva: '+comp.map(k=>k+' '+fmt(Math.round(tolvaComp[k]))+' kg').join(' · ')+' — la descarga se reparte sola':'';
+  const modo=document.getElementById('modo-lotes');
+  if(!modo||modo.style.display==='none')return;
+  document.getElementById('lote-live').style.display=loteIniciado?'block':'none';
+  document.getElementById('btn-iniciar-lote').disabled=!!loteIniciado;
+  document.getElementById('btn-cerrar-lote').disabled=!loteIniciado;
+  if(loteIniciado){document.getElementById('lote-live-nombre').textContent=loteIniciado.lote;actualizarLoteLive();}
+  const sumComp=comp.reduce((s,k)=>s+tolvaComp[k],0);
+  let h=comp.length?comp.map(k=>`<div class="hist-row"><span>${k}</span><span style="display:flex;gap:8px;align-items:center"><b>${fmt(Math.round(tolvaComp[k]))} kg</b><button onclick="ajustarTolva(this.dataset.l)" data-l="${k.replace(/"/g,'&quot;')}" style="width:auto;padding:4px 7px;font-size:12px;background:transparent;border:1px solid var(--border)"><i class="ti ti-pencil"></i></button></span></div>`).join(''):'<div style="font-size:13px;color:var(--muted)">Tolva sin lotes registrados.</div>';
+  if(pesoBT!=null){
+    const dif=Math.round(pesoBT-sumComp);
+    h+=`<div style="font-size:12px;color:var(--muted);margin-top:8px">Balanza: ${fmt(Math.round(pesoBT))} kg · Anotado por lote: ${fmt(Math.round(sumComp))} kg`+(Math.abs(dif)>150?` · <span style="color:var(--yellow)">Sin asignar: ${fmt(dif)} kg</span>`:'')+'</div>';
+  }
+  document.getElementById('tolva-comp').innerHTML=h;
+  const ks=Object.keys(tot);
+  let tb='';let gk=0,gh=0;
+  ks.forEach(k=>{
+    const x=tot[k],total=Math.max(x.ingresado,x.camiones),has=(lotesHas[k]&&lotesHas[k].v)||0;
+    gk+=total;gh+=has;
+    const rinde=has>0?Math.round(total/has):null;
+    tb+=`<tr><td>${k}</td><td style="text-align:right"><button data-l="${k.replace(/"/g,'&quot;')}" onclick="editarHas(this.dataset.l)" style="width:auto;padding:3px 8px;font-size:13px;background:transparent;border:1px solid var(--border)">${has?fmt(has):'+ has'}</button></td><td style="text-align:right">${fmt(Math.round(x.ingresado))}</td><td style="text-align:right">${fmt(Math.round(x.camiones))}</td><td style="text-align:right;font-weight:700">${fmt(Math.round(total))}</td><td style="text-align:right;font-weight:800;color:var(--green)">${rinde!==null?fmt(rinde):'—'}</td></tr>`;
+  });
+  if(ks.length>1&&gh>0)tb+=`<tr style="border-top:1px solid var(--border)"><td><b>Total</b></td><td style="text-align:right"><b>${fmt(gh)}</b></td><td></td><td></td><td style="text-align:right"><b>${fmt(Math.round(gk))}</b></td><td style="text-align:right;color:var(--green)"><b>${fmt(Math.round(gk/gh))}</b></td></tr>`;
+  document.getElementById('tabla-lotes').innerHTML=ks.length?`<div style="overflow-x:auto"><table style="width:100%;font-size:13px;border-collapse:collapse"><thead><tr style="color:var(--muted);font-size:11px;text-align:right"><th style="text-align:left">Lote</th><th>Has</th><th>Ingresó</th><th>Camiones</th><th>Total kg</th><th>Rinde kg/ha</th></tr></thead><tbody>${tb}</tbody></table></div>`:'<div style="font-size:13px;color:var(--muted)">Todavía no hay lotes.</div>';
+  const ing=ingresosLote.filter(i=>!i.borrado).slice().reverse();
+  document.getElementById('lista-ingresos').innerHTML=ing.length?ing.map(i=>`<div class="hist-row"><span style="color:var(--muted)">${i.fecha} ${i.hora} <span style="color:var(--yellow)">${i.lote}</span></span><span style="display:flex;gap:6px;align-items:center"><b>${fmt(Math.round(i.kg))} kg</b><button onclick="editarIngreso('${i.id}')" style="width:auto;padding:4px 7px;font-size:12px;background:transparent;border:1px solid var(--border)"><i class="ti ti-pencil"></i></button><button onclick="borrarIngreso('${i.id}')" style="width:auto;padding:4px 7px;font-size:12px;background:transparent;border:1px solid var(--border)"><i class="ti ti-trash"></i></button></span></div>`).join(''):'<div style="font-size:13px;color:var(--muted)">Sin ingresos aún...</div>';
+}
+function actualizarLoteLive(){
+  if(!loteIniciado)return;
+  const el=document.getElementById('lote-live-kg');
+  if(el)el.textContent=fmt(Math.max(0,Math.round((pesoBT||0)-loteIniciado.base)));
+}
+setInterval(actualizarLoteLive,500);
+cargarLotes();
+try{const cs=document.getElementById('camion-desde-silo');if(cs)cs.checked=!!localStorage.getItem('monotolva_desde_silo');}catch(e){}
+
 cargarLocal();
+renderLotes();
 renderEnsayos();
 restaurarSesionActiva();
 syncFirebaseHistorial();
@@ -1191,12 +1387,15 @@ function cambiarModo(modo){
   document.getElementById('modo-ensayo').style.display = modo==='ensayo' ? 'block':'none';
   document.getElementById('modo-calibracion').style.display = modo==='calibracion' ? 'block':'none';
   document.getElementById('modo-resumen').style.display = modo==='resumen' ? 'block':'none';
+  document.getElementById('modo-lotes').style.display = modo==='lotes' ? 'block':'none';
+  document.getElementById('tab-lotes').classList.toggle('activo', modo==='lotes');
   document.getElementById('tab-camion').classList.toggle('activo', modo==='camion');
   document.getElementById('tab-silobolsa').classList.toggle('activo', modo==='silobolsa');
   document.getElementById('tab-ensayo').classList.toggle('activo', modo==='ensayo');
   document.getElementById('tab-calibracion').classList.toggle('activo', modo==='calibracion');
   document.getElementById('tab-resumen').classList.toggle('activo', modo==='resumen');
   if(modo==='resumen')renderResumenDia();
+  if(modo==='lotes')renderLotes();
 }
 
 // ── BLUETOOTH ─────────────────────────────────────────
@@ -1922,7 +2121,12 @@ function finDescargaBolsa(){
   const fecha=ahora.toLocaleDateString('es-AR');
   const hora=ahora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
   const loteActual=document.getElementById('lote-actual-sb').value.trim()||estadoBolsa.lote||'—';
-  estadoBolsa.aportes.push({kg:bajado,fecha,hora,num:estadoBolsa.aportes.length+1,lote:loteActual});
+  const partesSb=repartirDescargaPorLotes(bajado);
+  if(partesSb){
+    partesSb.forEach(pt=>estadoBolsa.aportes.push({kg:pt.kg,fecha,hora,num:estadoBolsa.aportes.length+1,lote:pt.lote}));
+  }else{
+    estadoBolsa.aportes.push({kg:bajado,fecha,hora,num:estadoBolsa.aportes.length+1,lote:loteActual});
+  }
   estadoBolsa.total+=bajado;
   document.getElementById('sb-total').textContent=fmt(Math.round(estadoBolsa.total));
   renderHistorialBolsa();
@@ -2171,7 +2375,13 @@ function finDescargaCamion(){
   const fecha=ahora.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'});
   const hora=ahora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
   const loteActual=document.getElementById('lote-actual-camion').value.trim()||estado.lote||'—';
-  estado.descargas.push({kg:real,hora,fecha,num:estado.descargas.length+1,lote:loteActual});
+  const desdeSilo=document.getElementById('camion-desde-silo')&&document.getElementById('camion-desde-silo').checked;
+  const partesLote=desdeSilo?null:repartirDescargaPorLotes(real);
+  if(partesLote){
+    partesLote.forEach(pt=>estado.descargas.push({kg:pt.kg,hora,fecha,num:estado.descargas.length+1,lote:pt.lote}));
+  }else{
+    estado.descargas.push({kg:real,hora,fecha,num:estado.descargas.length+1,lote:loteActual});
+  }
   if(compartidoActivo && fbDb && compartidoRef){
     compartidoRef.update({
       cargado: firebase.database.ServerValue.increment(real),
