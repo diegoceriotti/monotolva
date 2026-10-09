@@ -2576,5 +2576,27 @@ function nuevoCamion(){
 document.getElementById('cap-tolva').addEventListener('input',()=>actualizarNivelTolvaBar(pesoBT!==null?pesoBT:0));
 document.getElementById('sb-cap-tolva').addEventListener('input',()=>actualizarNivelTolvaBarSb(pesoBT!==null?pesoBT:0));
 </script>
+
+<!-- SIMULADOR DE BALANZA (SOLO PRUEBA) -->
+<div id="sim-balanza" style="position:fixed;right:8px;bottom:8px;z-index:9999;background:#2b1a1a;border:1px solid #e24b4a;border-radius:10px;padding:8px 10px;font-size:12px;color:#fff;max-width:260px">
+  <div style="font-weight:800;margin-bottom:6px">SIMULADOR DE BALANZA (solo prueba)</div>
+  <div style="margin-bottom:6px">Peso simulado: <b id="sim-peso">—</b> kg</div>
+  <div style="display:flex;flex-wrap:wrap;gap:4px">
+    <button onclick="simPeso(500)" style="width:auto;padding:6px 8px;font-size:12px">+500</button>
+    <button onclick="simPeso(1000)" style="width:auto;padding:6px 8px;font-size:12px">+1000</button>
+    <button onclick="simPeso(-500)" style="width:auto;padding:6px 8px;font-size:12px">−500</button>
+    <button onclick="simPeso(-1000)" style="width:auto;padding:6px 8px;font-size:12px">−1000</button>
+    <button onclick="simPeso(null,0)" style="width:auto;padding:6px 8px;font-size:12px">En 0</button>
+    <button onclick="document.getElementById('sim-balanza').style.display='none'" style="width:auto;padding:6px 8px;font-size:12px">Ocultar</button>
+  </div>
+</div>
+<script>
+function simPeso(delta,abs){
+  let v=(pesoBT===null||pesoBT===undefined)?0:pesoBT;
+  v=(abs!==undefined&&abs!==null)?abs:Math.max(0,v+delta);
+  pesoBT=v;actualizarTolva(v);
+  document.getElementById('sim-peso').textContent=fmt(Math.round(v));
+}
+</script>
 </body>
 </html>
