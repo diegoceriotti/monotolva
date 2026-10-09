@@ -55,7 +55,7 @@ h1{font-size:19px;font-weight:800;margin-bottom:0.25rem;display:flex;align-items
 .pill.verde{background:rgba(62,142,90,0.2);color:#7FCB9B}
 .pill.azul{background:rgba(46,109,164,0.2);color:#7FB0E0}
 .pill.gris{background:rgba(141,149,160,0.2);color:var(--muted)}
-.nav-tabs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:1rem}
+.nav-tabs{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:1rem}
 .nav-tab{padding:10px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--panel);color:var(--muted);font-size:12px;font-weight:800;text-align:center;cursor:pointer;text-transform:uppercase;letter-spacing:0.3px}
 .nav-tab.activo{background:var(--yellow);color:#1a1300;border-color:var(--yellow)}
 .live-dot{width:9px;height:9px;border-radius:50%;background:var(--muted);display:inline-block;margin-right:6px}
@@ -145,6 +145,13 @@ setTimeout(function(){
     <div id="vivo-contenido"><div class="vacio">Cargando...</div></div>
   </div>
 
+  <!-- CAMPAÑA -->
+  <div class="card">
+    <div class="card-title"><i class="ti ti-seeding"></i> Campaña</div>
+    <select id="sel-campH" onchange="campH=this.value;renderTodoH()"></select>
+    <div style="font-size:12px;color:var(--muted);margin-top:6px">Por defecto ves la campaña actual de la tablet. Las anteriores quedan guardadas: elegilas acá.</div>
+  </div>
+
   <!-- TOTALES DEL PERÍODO — resumen agregado, igual que la pestaña Resumen de la tablet -->
   <div class="card" id="card-totales">
     <div class="card-title"><i class="ti ti-chart-bar"></i> Totales</div>
@@ -166,6 +173,7 @@ setTimeout(function(){
     <button class="nav-tab activo" id="tab-camiones" onclick="cambiarTab('camiones')"><i class="ti ti-truck"></i> Camiones</button>
     <button class="nav-tab" id="tab-silobolsas" onclick="cambiarTab('silobolsas')"><i class="ti ti-package"></i> Silobolsas</button>
     <button class="nav-tab" id="tab-ensayos" onclick="cambiarTab('ensayos')"><i class="ti ti-flask"></i> Ensayos</button>
+    <button class="nav-tab" id="tab-lotes" onclick="cambiarTab('lotes')"><i class="ti ti-map-2"></i> Lotes</button>
   </div>
 
   <div class="card" id="panel-camiones">
@@ -272,6 +280,12 @@ setTimeout(function(){
     <div id="lista-silobolsas"><div class="vacio">Sin datos todavía...</div></div>
   </div>
 
+  <div class="card" id="panel-lotes" style="display:none">
+    <div class="card-title"><i class="ti ti-chart-bar"></i> Totales por lote y rinde</div>
+    <div id="tabla-lotesH"><div class="vacio">Sin datos todavía...</div></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">Total = lo mayor entre lo ingresado a tolva y lo despachado en camiones. Rinde = Total ÷ hectáreas (las hectáreas se cargan desde la tablet).</div>
+  </div>
+
   <div class="card" id="panel-ensayos" style="display:none">
     <div class="card-title"><i class="ti ti-history"></i> Historial de ensayos</div>
     <div id="panel-editar-ensayo" style="display:none;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
@@ -290,7 +304,7 @@ setTimeout(function(){
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-10-07 (PRUEBA)
+    Monotolva — versión 2026-10-09 · campañas v1 (PRUEBA)
   </div>
   <div id="sesion-estado" style="text-align:center;font-size:11px;color:var(--muted);padding:0 0 1rem"></div>
 </div>
@@ -319,6 +333,47 @@ let ultimoHistorialCamiones=[];
 let ultimoHistorialSilobolsas=[];
 let ultimoHistorialEnsayos=[];
 let editandoCamionIdx=null;
+let ultimoHist={}, ultimoLotes={}, campActualNube='', campH=null;
+function campSel(){return campH===null?campActualNube:campH;}
+function enCampH(r){const s=campSel();return s==='__todas__'||((r&&r.camp)||'')===s;}
+function decK(t){return String(t).replace(/%([0-9a-f]{2})/g,(m,h)=>String.fromCharCode(parseInt(h,16)));}
+function renderTodoH(){
+  const d=ultimoHist||{};
+  const cams=d.camiones||[], sbs=d.silobolsas||[], ens=d.ensayos||[];
+  // selector
+  const set=new Set([campActualNube]);
+  [...cams,...sbs,...ens].forEach(r=>{if(r)set.add(r.camp||'');});
+  ((ultimoLotes.ingresos)||[]).forEach(i=>{if(i)set.add(i.camp||'');});
+  const v=campSel();
+  const sel=document.getElementById('sel-campH');
+  if(sel)sel.innerHTML=[...set].map(c=>'<option value="'+String(c).replace(/"/g,'&quot;')+'"'+(c===v?' selected':'')+'>'+(c||'(sin campaña)')+(c===campActualNube?' — actual':'')+'</option>').join('')+'<option value="__todas__"'+(v==='__todas__'?' selected':'')+'>Todas las campañas</option>';
+  renderCamiones(cams);
+  renderSilobolsas(sbs);
+  renderEnsayos(ens);
+  renderTotales(cams.filter(enCampH), ens.filter(enCampH));
+  renderLotesH();
+}
+function renderLotesH(){
+  const cont=document.getElementById('tabla-lotesH');if(!cont)return;
+  const sel=campSel();
+  const t={};const g=n=>t[n]||(t[n]={ing:0,cam:0,has:0});
+  const todas=sel==='__todas__';
+  if(todas){cont.innerHTML='<div class="vacio">Elegí una campaña para ver sus lotes.</div>';return;}
+  const pre=sel.replace(/[.#$\[\]\/%]/g,c=>'%'+c.charCodeAt(0).toString(16).padStart(2,'0'))+'¦';
+  Object.keys(ultimoLotes.has||{}).forEach(k=>{if(k.startsWith(pre)){const n=decK(k.slice(pre.length));g(n).has=(ultimoLotes.has[k]&&ultimoLotes.has[k].v)||0;}});
+  (ultimoLotes.ingresos||[]).forEach(i=>{if(i&&!i.borrado&&(i.camp||'')===sel)g(i.lote).ing+=i.kg||0;});
+  ((ultimoHist.camiones)||[]).forEach(c=>{
+    if(!c||(c.camp||'')!==sel)return;
+    if(c.descargas&&c.descargas.length)c.descargas.forEach(d=>{const n=d.lote||c.lote;if(n&&n!=='—')g(n).cam+=d.kg||0;});
+    else if(c.lote&&c.lote!=='—')g(c.lote).cam+=c.cargado||0;
+  });
+  const ks=Object.keys(t);
+  if(!ks.length){cont.innerHTML='<div class="vacio">Todavía no hay lotes en esta campaña.</div>';return;}
+  let gk=0,gh=0;
+  const filas=ks.map(k=>{const x=t[k],tot=Math.max(x.ing,x.cam);gk+=tot;gh+=x.has;return `<tr><td>${k}</td><td style="text-align:right">${x.has?fmt(x.has):'—'}</td><td style="text-align:right">${fmt(Math.round(x.ing))}</td><td style="text-align:right">${fmt(Math.round(x.cam))}</td><td style="text-align:right;font-weight:700">${fmt(Math.round(tot))}</td><td style="text-align:right;font-weight:800;color:var(--green)">${x.has>0?fmt(Math.round(tot/x.has)):'—'}</td></tr>`;}).join('');
+  const total=(ks.length>1&&gh>0)?`<tr style="border-top:1px solid var(--border)"><td><b>Total</b></td><td style="text-align:right"><b>${fmt(gh)}</b></td><td></td><td></td><td style="text-align:right"><b>${fmt(Math.round(gk))}</b></td><td style="text-align:right;color:var(--green)"><b>${fmt(Math.round(gk/gh))}</b></td></tr>`:'';
+  cont.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;font-size:13px;border-collapse:collapse"><thead><tr style="color:var(--muted);font-size:11px;text-align:right"><th style="text-align:left">Lote</th><th>Has</th><th>Ingresó</th><th>Camiones</th><th>Total kg</th><th>Rinde kg/ha</th></tr></thead><tbody>${filas}${total}</tbody></table></div>`;
+}
 let editandoSilobolsaIdx=null;
 let editandoEnsayoIdx=null;
 
@@ -421,11 +476,13 @@ db.ref('vivo').on('value', snap=>{
 
 // ── HISTORIAL ─────────────────────────────────────────
 db.ref('historial').on('value', snap=>{
-  const data=snap.val()||{};
-  renderCamiones(data.camiones||[]);
-  renderSilobolsas(data.silobolsas||[]);
-  renderEnsayos(data.ensayos||[]);
-  renderTotales(data.camiones||[], data.ensayos||[]);
+  ultimoHist=snap.val()||{};
+  renderTodoH();
+});
+db.ref('lotes').on('value', snap=>{
+  ultimoLotes=snap.val()||{};
+  campActualNube=ultimoLotes.campActual||'';
+  renderTodoH();
 });
 
 } // fin iniciarEscuchas
@@ -620,7 +677,7 @@ function generarReporte(){
 }
 
 function obtenerCamionesFiltrados(lista){
-  let conIdx=lista.map((c,idx)=>({c,idx}));
+  let conIdx=lista.map((c,idx)=>({c,idx})).filter(({c})=>enCampH(c));
   if(filtroFecha)conIdx=conIdx.filter(({c})=>fechaARaISO(c.fecha)===filtroFecha);
   if(filtroDestino)conIdx=conIdx.filter(({c})=>c.destino===filtroDestino);
   if(filtroCarta)conIdx=conIdx.filter(({c})=>(c.carta||'').toLowerCase().includes(filtroCarta));
@@ -708,7 +765,8 @@ function renderSilobolsas(lista){
   const cont=document.getElementById('lista-silobolsas');
   if(!lista.length){cont.innerHTML='<div class="vacio">Sin datos todavía...</div>';return;}
   ultimoHistorialSilobolsas=lista;
-  const ordenada=lista.map((s,idx)=>({s,idx})).reverse();
+  const ordenada=lista.map((s,idx)=>({s,idx})).filter(({s})=>enCampH(s)).reverse();
+  if(!ordenada.length){cont.innerHTML='<div class="vacio">Sin datos en esta campaña.</div>';return;}
   cont.innerHTML=ordenada.map(({s,idx},i)=>{
     const aportes=(s.aportes||[]);
     const filasAportes=aportes.length ? aportes.map(a=>`
@@ -853,7 +911,8 @@ function renderEnsayos(lista){
   const cont=document.getElementById('lista-ensayos');
   if(!lista.length){cont.innerHTML='<div class="vacio">Sin datos todavía...</div>';return;}
   ultimoHistorialEnsayos=lista;
-  const ordenada=lista.map((e,idx)=>({e,idx})).reverse();
+  const ordenada=lista.map((e,idx)=>({e,idx})).filter(({e})=>enCampH(e)).reverse();
+  if(!ordenada.length){cont.innerHTML='<div class="vacio">Sin datos en esta campaña.</div>';return;}
   cont.innerHTML=ordenada.map(({e,idx})=>`
     <div class="hist-row">
       <span style="color:var(--muted)">#${e.num} · ${e.fecha||''} ${e.hora||''} — ${e.desc||'—'}</span>
@@ -866,7 +925,7 @@ function renderEnsayos(lista){
 
 // ── TABS ──────────────────────────────────────────────
 function cambiarTab(tab){
-  ['camiones','silobolsas','ensayos'].forEach(t=>{
+  ['camiones','silobolsas','ensayos','lotes'].forEach(t=>{
     document.getElementById('tab-'+t).classList.toggle('activo', t===tab);
     document.getElementById('panel-'+t).style.display = t===tab ? 'block' : 'none';
   });

@@ -619,6 +619,12 @@ setTimeout(function(){
   </div>
 
   <div id="modo-resumen" style="display:none">
+    <div class="card" style="padding-bottom:10px">
+      <div class="card-title"><i class="ti ti-seeding"></i> Campaña que estás viendo</div>
+      <select id="sel-vista" onchange="campVista=this.value;renderResumenDia()"></select>
+      <div id="aviso-sin-camp"></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Las campañas anteriores quedan guardadas (también en la nube, para la app de tu hermano). Acá ves por defecto solo la campaña actual.</div>
+    </div>
     <div class="card">
       <div class="card-title"><i class="ti ti-calendar-stats"></i> Totales acumulados</div>
       <div class="grid3" style="margin-bottom:14px">
@@ -758,7 +764,7 @@ setTimeout(function(){
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-10-08 · lotes v6 (PRUEBA)
+    Monotolva — versión 2026-10-08 · lotes v7b (PRUEBA)
   </div>
   <div id="sesion-estado" style="text-align:center;font-size:11px;color:var(--muted);padding:0 0 1rem"></div>
 
@@ -1226,16 +1232,21 @@ let lotesHas={};        // {nombre:{v:has, ts}}
 let ingresosLote=[];    // [{id,lote,kg,fecha,hora,ultimaEdicion,borrado?}]
 let tolvaComp={};       // {nombre:kg} lo que hay ahora en la tolva, por lote
 let loteIniciado=null;  // {lote, base} mientras se está cargando un lote
-let campActual='';      // campaña activa (ej: "Trigo 26"); se mantiene hasta que se cambie
+let campActual='';
+let campVista=null;     // campaña que se está mirando en Resumen (por defecto la actual)
+function enVista(r){return campVista==='__todas__'||((r.camp||'')===(campVista===null?campActual:campVista));}      // campaña activa (ej: "Trigo 26"); se mantiene hasta que se cambie
 const SEP='¦';
-function hk(l){return campActual+SEP+l;}
+function encK(t){return String(t).replace(/[.#$\[\]\/%]/g,c=>'%'+c.charCodeAt(0).toString(16).padStart(2,'0'));}
+function decK(t){return String(t).replace(/%([0-9a-f]{2})/g,(m,h)=>String.fromCharCode(parseInt(h,16)));}
+function hk(l){return encK(campActual)+SEP+encK(l);}
 function getHas(l){const x=lotesHas[hk(l)];return (x&&x.v)||0;}
 function setHas(l,v){lotesHas[hk(l)]={v,ts:Date.now()};}
 function ensureHas(l){if(!lotesHas[hk(l)])setHas(l,0);}
-function hasDeCamp(){const pre=campActual+SEP;return Object.keys(lotesHas).filter(k=>k.startsWith(pre)).map(k=>k.slice(pre.length));}
+function hasDeCamp(){const pre=encK(campActual)+SEP;return Object.keys(lotesHas).filter(k=>k.startsWith(pre)).map(k=>decK(k.slice(pre.length)));}
 function ingDeCamp(){return ingresosLote.filter(i=>!i.borrado&&(i.camp||'')===campActual);}
 function normTxt(t){return (t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
 function camionEsDeCamp(c){
+  if(c.camp!==undefined)return c.camp===campActual;
   if(!campActual)return true;
   const prod=normTxt(c.producto);if(!prod)return true;
   return normTxt(campActual).includes(prod);
@@ -1243,7 +1254,7 @@ function camionEsDeCamp(c){
 function listaCamps(){
   const set=new Set();
   ingresosLote.forEach(i=>{if(!i.borrado)set.add(i.camp||'');});
-  Object.keys(lotesHas).forEach(k=>set.add(k.split(SEP)[0]));
+  Object.keys(lotesHas).forEach(k=>set.add(decK(k.split(SEP)[0])));
   set.add(campActual);
   return [...set];
 }
@@ -1251,7 +1262,7 @@ function listaCamps(){
 function cargarLotes(){
   try{
     const d=JSON.parse(localStorage.getItem(LS_KEY_LOTES)||'null');
-    if(d){lotesHas=d.lotesHas||{};ingresosLote=d.ingresosLote||[];tolvaComp=d.tolvaComp||{};loteIniciado=d.loteIniciado||null;campActual=d.campActual||'';}
+    if(d){lotesHas=d.lotesHas||{};ingresosLote=d.ingresosLote||[];tolvaComp=d.tolvaComp||{};loteIniciado=d.loteIniciado||null;campActual=d.campActual||'';campVista=campActual;}
   }catch(e){console.warn('No se pudieron leer los lotes:',e);}
 }
 function guardarLotes(){
@@ -1267,7 +1278,7 @@ function syncFirebaseLotes(){
       Object.keys(r.has||{}).forEach(k=>{const x=r.has[k];if(x&&(!lotesHas[k]||(x.ts||0)>(lotesHas[k].ts||0)))lotesHas[k]=x;});
       if(!Object.keys(tolvaComp).length && r.tolva)tolvaComp=r.tolva;
       try{localStorage.setItem(LS_KEY_LOTES,JSON.stringify({lotesHas,ingresosLote,tolvaComp,loteIniciado,campActual}));}catch(e){}
-      fbDb.ref('lotes').set({ingresos:ingresosLote,has:lotesHas,tolva:tolvaComp,actualizado:Date.now()}).catch(()=>{});
+      fbDb.ref('lotes').set({ingresos:ingresosLote,has:lotesHas,tolva:tolvaComp,campActual:campActual,actualizado:Date.now()}).catch(()=>{});
       renderLotes();
     }).catch(e=>console.warn('Lotes: no se pudo leer la nube:',e.message));
   }catch(e){console.warn('Lotes sync:',e);}
@@ -1431,13 +1442,33 @@ function cambiarCamp(v){
     tolvaComp={};
   }
   // lo cargado antes de usar campañas (sin nombre) pasa a la primera campaña que se cree
-  const hayViejo=campActual===''&&(ingresosLote.some(i=>!i.borrado&&!(i.camp))||Object.keys(lotesHas).some(k=>k.startsWith(SEP)));
+  const hayViejo=campActual===''&&([...cargasDelDia,...silobolsasCerradas,...ensayosGuardados].some(r=>!r.camp)||ingresosLote.some(i=>!i.borrado&&!(i.camp))||Object.keys(lotesHas).some(k=>k.startsWith(SEP)));
   if(hayViejo&&!listaCamps().some(c=>c&&c===v)&&confirm('Ya hay lotes cargados sin campaña. ¿Son de "'+v+'"?')){
-    ingresosLote.forEach(i=>{if(!i.camp){i.camp=v;i.ultimaEdicion=Date.now();}});
-    Object.keys(lotesHas).filter(k=>k.startsWith(SEP)).forEach(k=>{lotesHas[v+SEP+k.slice(1)]=lotesHas[k];delete lotesHas[k];});
+    [...cargasDelDia,...silobolsasCerradas,...ensayosGuardados,...ingresosLote].forEach(i=>{if(!i.camp){i.camp=v;i.ultimaEdicion=Date.now();}});
+    guardarLocal();
+    Object.keys(lotesHas).filter(k=>k.startsWith(SEP)).forEach(k=>{lotesHas[encK(v)+SEP+k.slice(1)]=lotesHas[k];delete lotesHas[k];});
   }
-  campActual=v;
-  guardarLotes();renderLotes();
+  campActual=v;campVista=v;
+  guardarLotes();renderLotes();renderEnsayos();renderResumenDia();
+}
+
+function renderSelVista(){
+  const sv=document.getElementById('sel-vista');if(!sv)return;
+  const set=new Set(listaCamps());
+  [...cargasDelDia,...silobolsasCerradas,...ensayosGuardados].forEach(r=>set.add(r.camp||''));
+  const v=campVista===null?campActual:campVista;
+  sv.innerHTML=[...set].map(c=>'<option value="'+c.replace(/"/g,'&quot;')+'"'+(c===v?' selected':'')+'>'+(c||'(sin campaña)')+(c===campActual?' — actual':'')+'</option>').join('')+'<option value="__todas__"'+(v==='__todas__'?' selected':'')+'>Todas las campañas</option>';
+  const n=[...cargasDelDia,...silobolsasCerradas,...ensayosGuardados,...ingresosLote.filter(i=>!i.borrado)].filter(r=>!r.camp).length;
+  const av=document.getElementById('aviso-sin-camp');
+  if(av)av.innerHTML=(n>0&&campActual)?'<button onclick="asignarSinCamp()" style="margin-top:8px"><i class="ti ti-arrow-big-right-lines"></i> Hay '+n+' registros sin campaña: pasarlos a "'+campActual+'"</button>':'';
+}
+function asignarSinCamp(){
+  if(!campActual)return;
+  if(!confirm('¿Pasar todos los registros sin campaña a "'+campActual+'"?'))return;
+  const t=Date.now();
+  [...cargasDelDia,...silobolsasCerradas,...ensayosGuardados,...ingresosLote].forEach(r=>{if(!r.camp){r.camp=campActual;r.ultimaEdicion=t;}});
+  Object.keys(lotesHas).filter(k=>k.startsWith(SEP)).forEach(k=>{lotesHas[encK(campActual)+SEP+k.slice(1)]=lotesHas[k];delete lotesHas[k];});
+  guardarLocal();guardarLotes();renderResumenDia();renderEnsayos();renderLotes();
 }
 function actualizarLoteLive(){
   if(!loteIniciado)return;
@@ -1809,7 +1840,7 @@ function guardarEnsayo(){
   const ahora=new Date();
   const fecha=ahora.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'});
   const hora=ahora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
-  ensayosGuardados.push({id:generarIdRegistro(),desc,peso:pesoBT,fecha,hora,num:ensayosGuardados.length+1,ultimaEdicion:Date.now()});
+  ensayosGuardados.push({id:generarIdRegistro(),camp:campActual,desc,peso:pesoBT,fecha,hora,num:ensayosGuardados.length+1,ultimaEdicion:Date.now()});
   document.getElementById('ensayo-desc').value='';
   guardarLocal();
   renderEnsayos();
@@ -1817,10 +1848,11 @@ function guardarEnsayo(){
 
 function renderEnsayos(){
   const cont=document.getElementById('historial-ensayos');
-  if(!ensayosGuardados.length){
+  const ensV=ensayosGuardados.filter(e=>(e.camp||'')===campActual);
+  if(!ensV.length){
     cont.innerHTML='<div style="font-size:13px;color:var(--muted)">Sin ensayos registrados aún...</div>';return;
   }
-  cont.innerHTML=ensayosGuardados.slice().reverse().map(e=>`
+  cont.innerHTML=ensV.slice().reverse().map(e=>`
     <div class="ensayo-hist-item">
       <div class="ensayo-hist-desc">${e.desc}</div>
       <div class="ensayo-hist-meta"><span>#${e.num} · ${e.fecha} ${e.hora}</span><span style="font-weight:800;color:var(--yellow)">${fmt(Math.round(e.peso))} kg</span></div>
@@ -2041,13 +2073,18 @@ function guardarEdicionEnsayo(){
 }
 
 function renderResumenDia(){
-  document.getElementById('r-camiones').textContent=cargasDelDia.length;
-  document.getElementById('r-ensayos').textContent=ensayosGuardados.length;
-  const totalKg=cargasDelDia.reduce((s,c)=>s+c.cargado,0);
+  renderSelVista();
+  const cdV=cargasDelDia.map((c,idx)=>({c,idx})).filter(x=>enVista(x.c));
+  const cargasV=cdV.map(x=>x.c);
+  const sbV=silobolsasCerradas.filter(enVista);
+  const enV=ensayosGuardados.map((e,idx)=>({e,idx})).filter(x=>enVista(x.e));
+  document.getElementById('r-camiones').textContent=cargasV.length;
+  document.getElementById('r-ensayos').textContent=enV.length;
+  const totalKg=cargasV.reduce((s,c)=>s+c.cargado,0);
   document.getElementById('r-kg-total').textContent=fmt(Math.round(totalKg));
 
   const totDest={};DESTINOS_CAMION.forEach(d=>totDest[d]=0);
-  cargasDelDia.forEach(c=>{if(c.destino && totDest[c.destino]!==undefined)totDest[c.destino]+=c.cargado;});
+  cargasV.forEach(c=>{if(c.destino && totDest[c.destino]!==undefined)totDest[c.destino]+=c.cargado;});
   const activos=DESTINOS_CAMION.filter(d=>totDest[d]>0);
   document.getElementById('r-subtotales-dest').innerHTML = activos.length ? activos.map(k=>`
     <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-radius:8px;margin-bottom:5px;background:${DEST_COLOR[k].bg}">
@@ -2056,7 +2093,7 @@ function renderResumenDia(){
     </div>`).join('') : '<div style="font-size:13px;color:var(--muted)">Sin datos aún...</div>';
 
   const totNombre={};NOMBRES_DE.forEach(n=>totNombre[n]=0);
-  cargasDelDia.forEach(c=>{if(c.nombreDe && totNombre[c.nombreDe]!==undefined)totNombre[c.nombreDe]+=c.cargado;});
+  cargasV.forEach(c=>{if(c.nombreDe && totNombre[c.nombreDe]!==undefined)totNombre[c.nombreDe]+=c.cargado;});
   const activosNombre=NOMBRES_DE.filter(n=>totNombre[n]>0);
   document.getElementById('r-subtotales-nombre').innerHTML = activosNombre.length ? activosNombre.map(k=>`
     <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-radius:8px;margin-bottom:5px;background:${NOMBRE_COLOR[k].bg}">
@@ -2065,10 +2102,10 @@ function renderResumenDia(){
     </div>`).join('') : '<div style="font-size:13px;color:var(--muted)">Sin datos aún...</div>';
 
   const contC=document.getElementById('r-lista-camiones');
-  if(!cargasDelDia.length){
+  if(!cdV.length){
     contC.innerHTML='<div style="font-size:13px;color:var(--muted)">Sin camiones cerrados aún...</div>';
   }else{
-    contC.innerHTML=cargasDelDia.map((c,idx)=>({c,idx})).slice().reverse().map(({c,idx})=>{
+    contC.innerHTML=cdV.slice().reverse().map(({c,idx})=>{
       const descargasHtml=(c.descargas||[]).map(d=>`
         <div class="hist-row" style="padding-left:10px">
           <span style="color:var(--muted)">#${d.num} &nbsp;${d.fecha||''} &nbsp;${d.hora} &nbsp;<span style="color:var(--yellow)">${d.lote||c.lote||'—'}</span></span>
@@ -2096,7 +2133,7 @@ function renderResumenDia(){
   }
 
   const gruposBolsa={};
-  silobolsasCerradas.forEach(s=>{
+  sbV.forEach(s=>{
     if(!gruposBolsa[s.numero])gruposBolsa[s.numero]={total:0,cierres:[]};
     gruposBolsa[s.numero].total+=s.total;
     gruposBolsa[s.numero].cierres.push(s);
@@ -2132,10 +2169,10 @@ function renderResumenDia(){
   }
 
   const contE=document.getElementById('r-lista-ensayos');
-  if(!ensayosGuardados.length){
+  if(!enV.length){
     contE.innerHTML='<div style="font-size:13px;color:var(--muted)">Sin ensayos registrados aún...</div>';
   }else{
-    contE.innerHTML=ensayosGuardados.map((e,idx)=>({e,idx})).slice().reverse().map(({e,idx})=>`
+    contE.innerHTML=enV.slice().reverse().map(({e,idx})=>`
       <div class="ensayo-hist-item">
         <div class="ensayo-hist-desc" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
           <span>${e.desc}</span>
@@ -2229,6 +2266,7 @@ function cerrarSilobolsa(){
   const lotesUsadosBolsa=[...new Set(estadoBolsa.aportes.map(a=>a.lote||estadoBolsa.lote))].filter(Boolean);
   silobolsasCerradas.push({
     id:generarIdRegistro(),
+    camp:campActual,
     numero:estadoBolsa.numero,
     producto:estadoBolsa.producto,
     lote:lotesUsadosBolsa.join(' + ')||estadoBolsa.lote,
@@ -2563,6 +2601,7 @@ function completarCarga(){
   const lotesUsadosCamion=[...new Set(estado.descargas.map(d=>d.lote||estado.lote))].filter(Boolean);
   cargasDelDia.push({
     id: generarIdRegistro(),
+    camp:campActual,
     num:cargasDelDia.length+1,
     patente:estado.patente,
     chofer:estado.chofer,
