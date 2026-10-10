@@ -764,7 +764,7 @@ setTimeout(function(){
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-10-10 · lotes v7d (PRUEBA)
+    Monotolva — versión 2026-10-10 · lotes v7f (PRUEBA)
   </div>
   <div id="sesion-estado" style="text-align:center;font-size:11px;color:var(--muted);padding:0 0 1rem"></div>
 
@@ -1302,19 +1302,36 @@ function iniciarLote(){
   loteIniciado={lote:nom,base:pesoBT};
   guardarLotes();renderLotes();
 }
+function volcarLoteAbierto(){
+  // pasa a la tolva lo que el lote abierto acumuló hasta ahora y lo deja abierto (misma línea de ingreso)
+  if(!loteIniciado||pesoBT==null)return 0;
+  const kg=Math.round(pesoBT-loteIniciado.base);
+  if(kg<=0)return 0;
+  let ing=loteIniciado.ingId?ingresosLote.find(x=>x.id===loteIniciado.ingId&&!x.borrado):null;
+  if(ing){ing.kg+=kg;ing.ultimaEdicion=Date.now();}
+  else{
+    const ahora=new Date();
+    ing={id:generarIdRegistro(),camp:campActual,lote:loteIniciado.lote,kg,
+      fecha:ahora.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}),
+      hora:ahora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),ultimaEdicion:Date.now()};
+    ingresosLote.push(ing);loteIniciado.ingId=ing.id;
+  }
+  tolvaComp[loteIniciado.lote]=(tolvaComp[loteIniciado.lote]||0)+kg;
+  ensureHas(loteIniciado.lote);
+  loteIniciado.base=pesoBT;
+  return kg;
+}
+function rebaseLoteAbierto(){
+  if(loteIniciado&&pesoBT!=null){loteIniciado.base=pesoBT;guardarLotes();renderLotes();}
+}
 function cerrarLote(auto){
   if(!loteIniciado)return;
   const kg=Math.round((pesoBT||0)-loteIniciado.base);
-  if(kg<=0){
+  if(kg<=0&&!loteIniciado.ingId){
     if(auto!==true&&!confirm('No se detectó aumento de peso. ¿Cancelar este lote sin guardar nada?'))return;
     loteIniciado=null;guardarLotes();renderLotes();return;
   }
-  const ahora=new Date();
-  ingresosLote.push({id:generarIdRegistro(),camp:campActual,lote:loteIniciado.lote,kg,
-    fecha:ahora.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}),
-    hora:ahora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),ultimaEdicion:Date.now()});
-  tolvaComp[loteIniciado.lote]=(tolvaComp[loteIniciado.lote]||0)+kg;
-  ensureHas(loteIniciado.lote);
+  volcarLoteAbierto();
   loteIniciado=null;
   guardarLotes();renderLotes();
 }
@@ -1377,7 +1394,13 @@ function adaptarCampoLote(){
     const cb=document.getElementById('camion-desde-silo');
     const auto=comp.length>0&&!(cb&&cb.checked);
     inp.style.display=auto?'none':'';
-    if(lab)lab.textContent=auto?'Lote: AUTOMÁTICO — la descarga se reparte según lo que hay en la tolva':'Lote actual (cambialo si cambia el origen)';
+    if(lab){
+      if(auto){
+        lab.textContent=loteIniciado
+          ?'Lote actual: '+loteIniciado.lote+' — lo que entra a la tolva se suma a este lote hasta que elijas otro'
+          :'Lote actual: '+comp.join(' + ')+' — la descarga se reparte según lo que hay en la tolva';
+      }else lab.textContent='Lote actual (cambialo si cambia el origen)';
+    }
     if(!auto&&loteIniciado&&(!inp.value.trim()||inp.value.trim()==='—'))inp.value=loteIniciado.lote;
   }catch(e){}
 }
@@ -2222,6 +2245,7 @@ function iniciarSilobolsa(){
 
 function iniciarDescargaBolsa(){
   if(pesoBT===null){alert('La balanza no está enviando datos todavía.');return;}
+  if(loteIniciado){volcarLoteAbierto();guardarLotes();renderLotes();}
   descargaBolsaInicio=pesoBT;
   document.getElementById('btn-inicio-descarga-sb').disabled=true;
   document.getElementById('btn-fin-descarga-sb').disabled=false;
@@ -2239,6 +2263,7 @@ function actualizarLiveDescargaBolsa(){
 function finDescargaBolsa(){
   if(descargaBolsaInicio===null)return;
   const bajado=Math.max(0, descargaBolsaInicio-(pesoBT!==null?pesoBT:descargaBolsaInicio));
+  rebaseLoteAbierto();
   document.getElementById('btn-inicio-descarga-sb').disabled=false;
   document.getElementById('btn-fin-descarga-sb').disabled=true;
   document.getElementById('sb-descarga-live').style.display='none';
@@ -2300,6 +2325,7 @@ function cerrarSilobolsa(){
 
 function cancelarDescargaBolsa(){
   descargaBolsaInicio=null;
+  rebaseLoteAbierto();
   document.getElementById('btn-inicio-descarga-sb').disabled=false;
   document.getElementById('btn-fin-descarga-sb').disabled=true;
   document.getElementById('sb-descarga-live').style.display='none';
@@ -2455,6 +2481,7 @@ function iniciarCarga(){
 
 function iniciarDescargaCamion(){
   if(pesoBT===null){alert('La balanza no está enviando datos todavía.');return;}
+  if(loteIniciado){volcarLoteAbierto();guardarLotes();renderLotes();}
   descargaCamionInicio=pesoBT;
   descargaCamionEnCurso=true;
   document.getElementById('btn-inicio-descarga-camion').disabled=true;
@@ -2488,6 +2515,7 @@ function finDescargaCamion(){
   const bajado=Math.max(0, descargaCamionInicio-(pesoBT!==null?pesoBT:descargaCamionInicio));
   descargaCamionInicio=null;
   descargaCamionEnCurso=false;
+  rebaseLoteAbierto();
   document.getElementById('btn-inicio-descarga-camion').disabled=false;
   document.getElementById('btn-fin-descarga-camion').disabled=true;
   document.getElementById('camion-descarga-live').style.display='none';
@@ -2543,6 +2571,7 @@ function editarDescarga(num){
 
 function cancelarDescargaCamion(){
   descargaCamionInicio=null;
+  rebaseLoteAbierto();
   document.getElementById('btn-inicio-descarga-camion').disabled=false;
   document.getElementById('btn-fin-descarga-camion').disabled=true;
   document.getElementById('camion-descarga-live').style.display='none';
