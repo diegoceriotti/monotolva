@@ -764,7 +764,7 @@ setTimeout(function(){
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-10-10 · lotes v7f (PRUEBA)
+    Monotolva — versión 2026-10-10 · lotes v7g (PRUEBA)
   </div>
   <div id="sesion-estado" style="text-align:center;font-size:11px;color:var(--muted);padding:0 0 1rem"></div>
 
@@ -2675,7 +2675,7 @@ function completarCarga(){
       <tr><td style="padding:6px 0;color:var(--muted)">Patente</td><td style="text-align:right;font-weight:700">${estado.patente}</td></tr>
       <tr><td style="padding:6px 0;color:var(--muted)">Chofer</td><td style="text-align:right">${estado.chofer}</td></tr>
       <tr><td style="padding:6px 0;color:var(--muted)">Empresa</td><td style="text-align:right">${estado.empresa}</td></tr>
-      <tr><td style="padding:6px 0;color:var(--muted)">Lote</td><td style="text-align:right">${estado.lote}</td></tr>
+      <tr><td style="padding:6px 0;color:var(--muted)">Lote</td><td style="text-align:right">${(()=>{const u=[...new Set(estado.descargas.map(d=>d.lote).filter(l=>l&&l!=='—'))];return u.length?u.join(' + '):estado.lote;})()}</td></tr>
       <tr><td style="padding:6px 0;color:var(--muted)">Carta N°</td><td style="text-align:right">${estado.carta}</td></tr>
       <tr><td style="padding:6px 0;color:var(--muted)">Producto</td><td style="text-align:right">${estado.producto}</td></tr>
       <tr><td style="padding:6px 0;color:var(--muted)">Destino</td><td style="text-align:right">${estado.destino}</td></tr>
