@@ -764,7 +764,7 @@ setTimeout(function(){
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-10-08 · lotes v7b (PRUEBA)
+    Monotolva — versión 2026-10-10 · lotes v7c (PRUEBA)
   </div>
   <div id="sesion-estado" style="text-align:center;font-size:11px;color:var(--muted);padding:0 0 1rem"></div>
 
@@ -1291,19 +1291,22 @@ function nombreLoteCanon(n){
   return n;
 }
 function iniciarLote(){
-  if(loteIniciado){alert('Ya hay un lote en carga. Cerralo primero.');return;}
   if(!campActual){alert('Primero elegí o creá la campaña (ej: Trigo 26) arriba de todo.');return;}
   if(pesoBT===null||pesoBT===undefined){alert('No hay lectura de balanza. Conectá el Bluetooth.');return;}
   const nom=nombreLoteCanon(document.getElementById('lote-ingreso').value);
   if(!nom){alert('Escribí o elegí el lote.');return;}
+  if(loteIniciado){
+    if(loteIniciado.lote===nom){alert('El lote '+nom+' ya está en carga.');return;}
+    cerrarLote(true); // cierra el lote abierto solo (sin preguntar) y abre el nuevo
+  }
   loteIniciado={lote:nom,base:pesoBT};
   guardarLotes();renderLotes();
 }
-function cerrarLote(){
+function cerrarLote(auto){
   if(!loteIniciado)return;
   const kg=Math.round((pesoBT||0)-loteIniciado.base);
   if(kg<=0){
-    if(!confirm('No se detectó aumento de peso. ¿Cancelar este lote sin guardar nada?'))return;
+    if(auto!==true&&!confirm('No se detectó aumento de peso. ¿Cancelar este lote sin guardar nada?'))return;
     loteIniciado=null;guardarLotes();renderLotes();return;
   }
   const ahora=new Date();
@@ -1381,7 +1384,7 @@ function renderLotes(){
   const sc=document.getElementById('sel-camp');
   if(sc){sc.innerHTML=listaCamps().map(c=>'<option value="'+c.replace(/"/g,'&quot;')+'"'+(c===campActual?' selected':'')+'>'+(c||'(sin campaña)')+'</option>').join('')+'<option value="__nueva__">+ Nueva campaña…</option>';}
   document.getElementById('lote-live').style.display=loteIniciado?'block':'none';
-  document.getElementById('btn-iniciar-lote').disabled=!!loteIniciado;
+  document.getElementById('btn-iniciar-lote').disabled=false;
   document.getElementById('btn-cerrar-lote').disabled=!loteIniciado;
   if(loteIniciado){document.getElementById('lote-live-nombre').textContent=loteIniciado.lote;actualizarLoteLive();}
   const sumComp=comp.reduce((s,k)=>s+tolvaComp[k],0);
