@@ -365,7 +365,7 @@ setTimeout(function(){
         <div style="margin-bottom:12px">
           <label>Lote actual (cambialo si cambia el origen)</label>
           <input id="lote-actual-camion" placeholder="Ej: Lote 12 - El Fortín">
-          <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;text-transform:none;letter-spacing:0;color:var(--text)"><input type="checkbox" id="camion-desde-silo" onchange="try{localStorage.setItem('monotolva_desde_silo',this.checked?'1':'')}catch(e){}" style="width:auto"> Cargando DESDE SILOBOLSA (no repartir por lotes de la tolva)</label>
+          <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;text-transform:none;letter-spacing:0;color:var(--text)"><input type="checkbox" id="camion-desde-silo" onchange="try{localStorage.setItem('monotolva_desde_silo',this.checked?'1':'')}catch(e){}adaptarCampoLote()" style="width:auto"> Cargando DESDE SILOBOLSA (no repartir por lotes de la tolva)</label>
           <div id="tolva-comp-camion" style="font-size:12px;color:var(--yellow);margin-top:6px"></div>
         </div>
 
@@ -764,7 +764,7 @@ setTimeout(function(){
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-10-10 · lotes v7c (PRUEBA)
+    Monotolva — versión 2026-10-10 · lotes v7d (PRUEBA)
   </div>
   <div id="sesion-estado" style="text-align:center;font-size:11px;color:var(--muted);padding:0 0 1rem"></div>
 
@@ -1369,6 +1369,18 @@ function totalesLotes(){
   });
   return t;
 }
+function adaptarCampoLote(){
+  try{
+    const inp=document.getElementById('lote-actual-camion');if(!inp)return;
+    const lab=inp.previousElementSibling;
+    const comp=Object.keys(tolvaComp).filter(k=>tolvaComp[k]>0);
+    const cb=document.getElementById('camion-desde-silo');
+    const auto=comp.length>0&&!(cb&&cb.checked);
+    inp.style.display=auto?'none':'';
+    if(lab)lab.textContent=auto?'Lote: AUTOMÁTICO — la descarga se reparte según lo que hay en la tolva':'Lote actual (cambialo si cambia el origen)';
+    if(!auto&&loteIniciado&&(!inp.value.trim()||inp.value.trim()==='—'))inp.value=loteIniciado.lote;
+  }catch(e){}
+}
 function renderLotes(){
   const dl=document.getElementById('lista-lotes');
   const tot=totalesLotes();
@@ -1379,6 +1391,7 @@ function renderLotes(){
   const lsb=document.getElementById('tolva-comp-sb');
   if(lsb)lsb.textContent=comp.length?'En tolva: '+comp.map(k=>k+' '+fmt(Math.round(tolvaComp[k]))+' kg').join(' · ')+' — el aporte se reparte solo por lote':'';
   if(linea)linea.textContent=comp.length?'En tolva: '+comp.map(k=>k+' '+fmt(Math.round(tolvaComp[k]))+' kg').join(' · ')+' — la descarga se reparte sola':'';
+  adaptarCampoLote();
   const modo=document.getElementById('modo-lotes');
   if(!modo||modo.style.display==='none')return;
   const sc=document.getElementById('sel-camp');
@@ -2537,6 +2550,7 @@ function cancelarDescargaCamion(){
 }
 
 function actualizarMetrics(){
+  adaptarCampoLote();
   const c=compartidoActivo?cargadoCombinado:estado.cargado,q=estado.cupo,f=Math.max(0,q-c);
   const pct=Math.min(100,Math.round(c/q*100));
   document.getElementById('m-cargado').textContent=fmt(Math.round(c));
