@@ -148,8 +148,15 @@ setTimeout(function(){
   <!-- CAMPAÑA -->
   <div class="card">
     <div class="card-title"><i class="ti ti-seeding"></i> Campaña</div>
-    <select id="sel-campH" onchange="campH=this.value;renderTodoH()"></select>
+    <select id="sel-campH" onchange="campH=this.value;loteH='';renderTodoH()"></select>
     <div style="font-size:12px;color:var(--muted);margin-top:6px">Por defecto ves la campaña actual de la tablet. Las anteriores quedan guardadas: elegilas acá.</div>
+  </div>
+
+  <!-- LOTE -->
+  <div class="card" id="card-loteH">
+    <div class="card-title"><i class="ti ti-map-2"></i> Lote</div>
+    <select id="sel-loteH" onchange="loteH=this.value;renderTodoH()"></select>
+    <div id="resumen-loteH" style="margin-top:10px"></div>
   </div>
 
   <!-- TOTALES DEL PERÍODO — resumen agregado, igual que la pestaña Resumen de la tablet -->
@@ -304,7 +311,7 @@ setTimeout(function(){
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-10-09 · campañas v1 (PRUEBA)
+    Monotolva — versión 2026-10-10 · campañas v2 (PRUEBA)
   </div>
   <div id="sesion-estado" style="text-align:center;font-size:11px;color:var(--muted);padding:0 0 1rem"></div>
 </div>
@@ -334,6 +341,45 @@ let ultimoHistorialSilobolsas=[];
 let ultimoHistorialEnsayos=[];
 let editandoCamionIdx=null;
 let ultimoHist={}, ultimoLotes={}, campActualNube='', campH=null;
+let loteH='';
+function calcLotesH(){
+  const sel=campSel();const t={};const g=n=>t[n]||(t[n]={ing:0,cam:0,has:0});
+  if(sel==='__todas__')return {sel,t,todas:true};
+  const pre=sel.replace(/[.#$\[\]\/%]/g,c=>'%'+c.charCodeAt(0).toString(16).padStart(2,'0'))+'¦';
+  Object.keys(ultimoLotes.has||{}).forEach(k=>{if(k.startsWith(pre)){const n=decK(k.slice(pre.length));g(n).has=(ultimoLotes.has[k]&&ultimoLotes.has[k].v)||0;}});
+  (ultimoLotes.ingresos||[]).forEach(i=>{if(i&&!i.borrado&&(i.camp||'')===sel)g(i.lote).ing+=i.kg||0;});
+  ((ultimoHist.camiones)||[]).forEach(c=>{
+    if(!c||(c.camp||'')!==sel)return;
+    if(c.descargas&&c.descargas.length)c.descargas.forEach(d=>{const n=d.lote||c.lote;if(n&&n!=='—')g(n).cam+=d.kg||0;});
+    else if(c.lote&&c.lote!=='—')g(c.lote).cam+=c.cargado||0;
+  });
+  return {sel,t,todas:false};
+}
+function kgLoteEnCamion(c,n){
+  if(!c)return 0;
+  if(c.descargas&&c.descargas.length)return c.descargas.reduce((s,d)=>s+(((d.lote||c.lote)===n)?(d.kg||0):0),0);
+  return c.lote===n?(c.cargado||0):0;
+}
+function silobolsaTieneLote(sb,n){return ((sb&&sb.aportes)||[]).some(a=>a.lote===n)||(sb&&sb.lote===n);}
+function renderLoteH(){
+  const L=calcLotesH();
+  const selEl=document.getElementById('sel-loteH'),res=document.getElementById('resumen-loteH');
+  if(!selEl||!res)return;
+  const ks=Object.keys(L.t);
+  if(L.todas||!ks.length){selEl.innerHTML='<option value="">Todos los lotes</option>';selEl.disabled=true;
+    res.innerHTML='<div class="vacio" style="padding:6px 0">'+(L.todas?'Elegí una campaña para ver sus lotes.':'Todavía no hay lotes en esta campaña.')+'</div>';return;}
+  selEl.disabled=false;
+  selEl.innerHTML='<option value="">Todos los lotes</option>'+ks.map(k=>'<option value="'+k.replace(/"/g,'&quot;')+'"'+(k===loteH?' selected':'')+'>'+k+'</option>').join('');
+  let tot=0,has=0,ing=0,cam=0,conHas=0;
+  const usar=loteH?[loteH]:ks;
+  usar.forEach(k=>{const x=L.t[k];if(!x)return;const tt=Math.max(x.ing,x.cam);tot+=tt;ing+=x.ing;cam+=x.cam;if(x.has>0){has+=x.has;conHas+=tt;}});
+  const rinde=has>0?Math.round(conHas/has):null;
+  const ncam=((ultimoHist.camiones)||[]).filter(c=>c&&(c.camp||'')===L.sel&&(!loteH||kgLoteEnCamion(c,loteH)>0)).length;
+  const box=(lab,val,color)=>'<div class="metric"><div class="metric-label">'+lab+'</div><div class="metric-val" style="font-size:20px'+(color?';color:'+color:'')+'">'+val+'</div></div>';
+  res.innerHTML='<div class="grid3">'+box('Total cosechado',fmt(Math.round(tot))+' kg')+box('Hectáreas',has>0?fmt(has):'—')+box('Rinde',rinde!==null?fmt(rinde)+' kg/ha':'—','var(--green,#4fbf7a)')+'</div>'
+   +'<div style="font-size:12px;color:var(--muted);margin-top:8px">'+(loteH?'Lote '+loteH:'Todos los lotes')+' · ingresado a tolva '+fmt(Math.round(ing))+' kg · despachado en camiones '+fmt(Math.round(cam))+' kg · '+ncam+' camión(es)'
+   +(has<=0?' · cargá las hectáreas en la tablet para ver el rinde':'')+'</div>';
+}
 function campSel(){return campH===null?campActualNube:campH;}
 function enCampH(r){const s=campSel();return s==='__todas__'||((r&&r.camp)||'')===s;}
 function decK(t){return String(t).replace(/%([0-9a-f]{2})/g,(m,h)=>String.fromCharCode(parseInt(h,16)));}
@@ -347,10 +393,13 @@ function renderTodoH(){
   const v=campSel();
   const sel=document.getElementById('sel-campH');
   if(sel)sel.innerHTML=[...set].map(c=>'<option value="'+String(c).replace(/"/g,'&quot;')+'"'+(c===v?' selected':'')+'>'+(c||'(sin campaña)')+(c===campActualNube?' — actual':'')+'</option>').join('')+'<option value="__todas__"'+(v==='__todas__'?' selected':'')+'>Todas las campañas</option>';
+  { const L0=calcLotesH(); if(loteH&&!L0.t[loteH])loteH=''; }
+  renderLoteH();
   renderCamiones(cams);
   renderSilobolsas(sbs);
   renderEnsayos(ens);
-  renderTotales(cams.filter(enCampH), ens.filter(enCampH));
+  const camsTot=cams.filter(enCampH).map(c=>loteH?Object.assign({},c,{cargado:kgLoteEnCamion(c,loteH)}):c).filter(c=>!loteH||c.cargado>0);
+  renderTotales(camsTot, ens.filter(enCampH));
   renderLotesH();
 }
 function renderLotesH(){
@@ -685,6 +734,7 @@ function obtenerCamionesFiltrados(lista){
   if(filtroLote)conIdx=conIdx.filter(({c})=>(c.lote||'').toLowerCase().includes(filtroLote));
   if(filtroComprador)conIdx=conIdx.filter(({c})=>(c.comprador||'').toLowerCase().includes(filtroComprador));
   if(filtroProducto)conIdx=conIdx.filter(({c})=>c.producto===filtroProducto);
+  if(loteH)conIdx=conIdx.filter(({c})=>kgLoteEnCamion(c,loteH)>0);
   return conIdx;
 }
 
@@ -765,7 +815,7 @@ function renderSilobolsas(lista){
   const cont=document.getElementById('lista-silobolsas');
   if(!lista.length){cont.innerHTML='<div class="vacio">Sin datos todavía...</div>';return;}
   ultimoHistorialSilobolsas=lista;
-  const ordenada=lista.map((s,idx)=>({s,idx})).filter(({s})=>enCampH(s)).reverse();
+  const ordenada=lista.map((s,idx)=>({s,idx})).filter(({s})=>enCampH(s)&&(!loteH||silobolsaTieneLote(s,loteH))).reverse();
   if(!ordenada.length){cont.innerHTML='<div class="vacio">Sin datos en esta campaña.</div>';return;}
   cont.innerHTML=ordenada.map(({s,idx},i)=>{
     const aportes=(s.aportes||[]);
