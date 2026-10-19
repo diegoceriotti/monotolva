@@ -3,10 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PRUEBA — Monotolva Vista en vivo</title>
-<link rel="icon" type="image/png" sizes="32x32" href="../hermano/icon-rojo-32.png">
-<link rel="apple-touch-icon" sizes="180x180" href="../hermano/icon-rojo-180.png">
-<link rel="icon" type="image/png" sizes="192x192" href="../hermano/icon-rojo-192.png">
+<title>Monotolva — Vista en vivo</title>
+<link rel="icon" type="image/png" sizes="32x32" href="icon-rojo-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-rojo-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-rojo-192.png">
+<link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#D9463B">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -55,7 +56,7 @@ h1{font-size:19px;font-weight:800;margin-bottom:0.25rem;display:flex;align-items
 .pill.verde{background:rgba(62,142,90,0.2);color:#7FCB9B}
 .pill.azul{background:rgba(46,109,164,0.2);color:#7FB0E0}
 .pill.gris{background:rgba(141,149,160,0.2);color:var(--muted)}
-.nav-tabs{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:1rem}
+.nav-tabs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:1rem}
 .nav-tab{padding:10px 6px;border-radius:8px;border:1.5px solid var(--border);background:var(--panel);color:var(--muted);font-size:12px;font-weight:800;text-align:center;cursor:pointer;text-transform:uppercase;letter-spacing:0.3px}
 .nav-tab.activo{background:var(--yellow);color:#1a1300;border-color:var(--yellow)}
 .live-dot{width:9px;height:9px;border-radius:50%;background:var(--muted);display:inline-block;margin-right:6px}
@@ -98,11 +99,10 @@ button.primary{background:var(--green);color:#fff;border-color:var(--green)}
 .login-error{min-height:16px;font-size:12px;color:#ff8079;font-weight:700}
 </style>
 </head>
-<body style="padding-top:20px">
-<div style="position:fixed;top:0;left:0;right:0;z-index:9500;background:#D9463B;color:#fff;text-align:center;font:800 11px system-ui,sans-serif;padding:3px 0;letter-spacing:1px">ENTORNO DE PRUEBA — NO ES LA APP REAL</div>
+<body>
 <div id="splash-screen">
-  <img id="splash-icon" src="../hermano/icon-rojo-192.png" alt="Monotolva">
-  <div id="splash-title">Monotolva Hno — PRUEBA</div>
+  <img id="splash-icon" src="icon-rojo-192.png" alt="Monotolva">
+  <div id="splash-title">Monotolva Hno</div>
   <div id="splash-sub">Ceriotti Desarrollos para el Agro</div>
 </div>
 <script>
@@ -116,7 +116,7 @@ setTimeout(function(){
 </script>
 <div id="login-screen">
   <div class="login-box">
-    <img src="../hermano/icon-rojo-192.png" alt="Monotolva">
+    <img src="icon-rojo-192.png" alt="Monotolva">
     <div class="login-title">Monotolva Hno</div>
     <div class="login-sub">Iniciá sesión para ver y editar las cargas</div>
     <input id="login-email" type="email" autocomplete="username" placeholder="Email">
@@ -145,20 +145,6 @@ setTimeout(function(){
     <div id="vivo-contenido"><div class="vacio">Cargando...</div></div>
   </div>
 
-  <!-- CAMPAÑA -->
-  <div class="card">
-    <div class="card-title"><i class="ti ti-seeding"></i> Campaña</div>
-    <select id="sel-campH" onchange="campH=this.value;loteH='';renderTodoH()"></select>
-    <div style="font-size:12px;color:var(--muted);margin-top:6px">Por defecto ves la campaña actual de la tablet. Las anteriores quedan guardadas: elegilas acá.</div>
-  </div>
-
-  <!-- LOTE -->
-  <div class="card" id="card-loteH">
-    <div class="card-title"><i class="ti ti-map-2"></i> Lote</div>
-    <select id="sel-loteH" onchange="loteH=this.value;renderTodoH()"></select>
-    <div id="resumen-loteH" style="margin-top:10px"></div>
-  </div>
-
   <!-- TOTALES DEL PERÍODO — resumen agregado, igual que la pestaña Resumen de la tablet -->
   <div class="card" id="card-totales">
     <div class="card-title"><i class="ti ti-chart-bar"></i> Totales</div>
@@ -180,7 +166,6 @@ setTimeout(function(){
     <button class="nav-tab activo" id="tab-camiones" onclick="cambiarTab('camiones')"><i class="ti ti-truck"></i> Camiones</button>
     <button class="nav-tab" id="tab-silobolsas" onclick="cambiarTab('silobolsas')"><i class="ti ti-package"></i> Silobolsas</button>
     <button class="nav-tab" id="tab-ensayos" onclick="cambiarTab('ensayos')"><i class="ti ti-flask"></i> Ensayos</button>
-    <button class="nav-tab" id="tab-lotes" onclick="cambiarTab('lotes')"><i class="ti ti-map-2"></i> Lotes</button>
   </div>
 
   <div class="card" id="panel-camiones">
@@ -287,12 +272,6 @@ setTimeout(function(){
     <div id="lista-silobolsas"><div class="vacio">Sin datos todavía...</div></div>
   </div>
 
-  <div class="card" id="panel-lotes" style="display:none">
-    <div class="card-title"><i class="ti ti-chart-bar"></i> Totales por lote y rinde</div>
-    <div id="tabla-lotesH"><div class="vacio">Sin datos todavía...</div></div>
-    <div style="font-size:11px;color:var(--muted);margin-top:8px">Total = lo mayor entre lo ingresado a tolva y lo despachado en camiones. Rinde = Total ÷ hectáreas (las hectáreas se cargan desde la tablet).</div>
-  </div>
-
   <div class="card" id="panel-ensayos" style="display:none">
     <div class="card-title"><i class="ti ti-history"></i> Historial de ensayos</div>
     <div id="panel-editar-ensayo" style="display:none;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
@@ -311,7 +290,7 @@ setTimeout(function(){
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-10-10 · campañas v2 (PRUEBA)
+    Monotolva — versión 2026-10-07
   </div>
   <div id="sesion-estado" style="text-align:center;font-size:11px;color:var(--muted);padding:0 0 1rem"></div>
 </div>
@@ -323,13 +302,13 @@ setTimeout(function(){
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 <script>
 const firebaseConfig={
-  apiKey:"AIzaSyAD449q_G4Vl4MbFWpWe4W8BWBvS6oe_LE",
-  authDomain:"monotolva-prueba.firebaseapp.com",
-  databaseURL:"https://monotolva-prueba-default-rtdb.firebaseio.com",
-  projectId:"monotolva-prueba",
-  storageBucket:"monotolva-prueba.firebasestorage.app",
-  messagingSenderId:"254210980296",
-  appId:"1:254210980296:web:5062e676aa4cc28ce568fd"
+  apiKey:"AIzaSyCPAW-Lx6qu3-NII4FwcuC27wDD56cmjOY",
+  authDomain:"monotolva-campo.firebaseapp.com",
+  databaseURL:"https://monotolva-campo-default-rtdb.firebaseio.com",
+  projectId:"monotolva-campo",
+  storageBucket:"monotolva-campo.firebasestorage.app",
+  messagingSenderId:"169072085835",
+  appId:"1:169072085835:web:95b5ee155081ed3cb636ce"
 };
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
@@ -340,89 +319,6 @@ let ultimoHistorialCamiones=[];
 let ultimoHistorialSilobolsas=[];
 let ultimoHistorialEnsayos=[];
 let editandoCamionIdx=null;
-let ultimoHist={}, ultimoLotes={}, campActualNube='', campH=null;
-let loteH='';
-function calcLotesH(){
-  const sel=campSel();const t={};const g=n=>t[n]||(t[n]={ing:0,cam:0,has:0});
-  if(sel==='__todas__')return {sel,t,todas:true};
-  const pre=sel.replace(/[.#$\[\]\/%]/g,c=>'%'+c.charCodeAt(0).toString(16).padStart(2,'0'))+'¦';
-  Object.keys(ultimoLotes.has||{}).forEach(k=>{if(k.startsWith(pre)){const n=decK(k.slice(pre.length));g(n).has=(ultimoLotes.has[k]&&ultimoLotes.has[k].v)||0;}});
-  (ultimoLotes.ingresos||[]).forEach(i=>{if(i&&!i.borrado&&(i.camp||'')===sel)g(i.lote).ing+=i.kg||0;});
-  ((ultimoHist.camiones)||[]).forEach(c=>{
-    if(!c||(c.camp||'')!==sel)return;
-    if(c.descargas&&c.descargas.length)c.descargas.forEach(d=>{const n=d.lote||c.lote;if(n&&n!=='—')g(n).cam+=d.kg||0;});
-    else if(c.lote&&c.lote!=='—')g(c.lote).cam+=c.cargado||0;
-  });
-  return {sel,t,todas:false};
-}
-function kgLoteEnCamion(c,n){
-  if(!c)return 0;
-  if(c.descargas&&c.descargas.length)return c.descargas.reduce((s,d)=>s+(((d.lote||c.lote)===n)?(d.kg||0):0),0);
-  return c.lote===n?(c.cargado||0):0;
-}
-function silobolsaTieneLote(sb,n){return ((sb&&sb.aportes)||[]).some(a=>a.lote===n)||(sb&&sb.lote===n);}
-function renderLoteH(){
-  const L=calcLotesH();
-  const selEl=document.getElementById('sel-loteH'),res=document.getElementById('resumen-loteH');
-  if(!selEl||!res)return;
-  const ks=Object.keys(L.t);
-  if(L.todas||!ks.length){selEl.innerHTML='<option value="">Todos los lotes</option>';selEl.disabled=true;
-    res.innerHTML='<div class="vacio" style="padding:6px 0">'+(L.todas?'Elegí una campaña para ver sus lotes.':'Todavía no hay lotes en esta campaña.')+'</div>';return;}
-  selEl.disabled=false;
-  selEl.innerHTML='<option value="">Todos los lotes</option>'+ks.map(k=>'<option value="'+k.replace(/"/g,'&quot;')+'"'+(k===loteH?' selected':'')+'>'+k+'</option>').join('');
-  let tot=0,has=0,ing=0,cam=0,conHas=0;
-  const usar=loteH?[loteH]:ks;
-  usar.forEach(k=>{const x=L.t[k];if(!x)return;const tt=Math.max(x.ing,x.cam);tot+=tt;ing+=x.ing;cam+=x.cam;if(x.has>0){has+=x.has;conHas+=tt;}});
-  const rinde=has>0?Math.round(conHas/has):null;
-  const ncam=((ultimoHist.camiones)||[]).filter(c=>c&&(c.camp||'')===L.sel&&(!loteH||kgLoteEnCamion(c,loteH)>0)).length;
-  const box=(lab,val,color)=>'<div class="metric"><div class="metric-label">'+lab+'</div><div class="metric-val" style="font-size:20px'+(color?';color:'+color:'')+'">'+val+'</div></div>';
-  res.innerHTML='<div class="grid3">'+box('Total cosechado',fmt(Math.round(tot))+' kg')+box('Hectáreas',has>0?fmt(has):'—')+box('Rinde',rinde!==null?fmt(rinde)+' kg/ha':'—','var(--green,#4fbf7a)')+'</div>'
-   +'<div style="font-size:12px;color:var(--muted);margin-top:8px">'+(loteH?'Lote '+loteH:'Todos los lotes')+' · ingresado a tolva '+fmt(Math.round(ing))+' kg · despachado en camiones '+fmt(Math.round(cam))+' kg · '+ncam+' camión(es)'
-   +(has<=0?' · cargá las hectáreas en la tablet para ver el rinde':'')+'</div>';
-}
-function campSel(){return campH===null?campActualNube:campH;}
-function enCampH(r){const s=campSel();return s==='__todas__'||((r&&r.camp)||'')===s;}
-function decK(t){return String(t).replace(/%([0-9a-f]{2})/g,(m,h)=>String.fromCharCode(parseInt(h,16)));}
-function renderTodoH(){
-  const d=ultimoHist||{};
-  const cams=d.camiones||[], sbs=d.silobolsas||[], ens=d.ensayos||[];
-  // selector
-  const set=new Set([campActualNube]);
-  [...cams,...sbs,...ens].forEach(r=>{if(r)set.add(r.camp||'');});
-  ((ultimoLotes.ingresos)||[]).forEach(i=>{if(i)set.add(i.camp||'');});
-  const v=campSel();
-  const sel=document.getElementById('sel-campH');
-  if(sel)sel.innerHTML=[...set].map(c=>'<option value="'+String(c).replace(/"/g,'&quot;')+'"'+(c===v?' selected':'')+'>'+(c||'(sin campaña)')+(c===campActualNube?' — actual':'')+'</option>').join('')+'<option value="__todas__"'+(v==='__todas__'?' selected':'')+'>Todas las campañas</option>';
-  { const L0=calcLotesH(); if(loteH&&!L0.t[loteH])loteH=''; }
-  renderLoteH();
-  renderCamiones(cams);
-  renderSilobolsas(sbs);
-  renderEnsayos(ens);
-  const camsTot=cams.filter(enCampH).map(c=>loteH?Object.assign({},c,{cargado:kgLoteEnCamion(c,loteH)}):c).filter(c=>!loteH||c.cargado>0);
-  renderTotales(camsTot, ens.filter(enCampH));
-  renderLotesH();
-}
-function renderLotesH(){
-  const cont=document.getElementById('tabla-lotesH');if(!cont)return;
-  const sel=campSel();
-  const t={};const g=n=>t[n]||(t[n]={ing:0,cam:0,has:0});
-  const todas=sel==='__todas__';
-  if(todas){cont.innerHTML='<div class="vacio">Elegí una campaña para ver sus lotes.</div>';return;}
-  const pre=sel.replace(/[.#$\[\]\/%]/g,c=>'%'+c.charCodeAt(0).toString(16).padStart(2,'0'))+'¦';
-  Object.keys(ultimoLotes.has||{}).forEach(k=>{if(k.startsWith(pre)){const n=decK(k.slice(pre.length));g(n).has=(ultimoLotes.has[k]&&ultimoLotes.has[k].v)||0;}});
-  (ultimoLotes.ingresos||[]).forEach(i=>{if(i&&!i.borrado&&(i.camp||'')===sel)g(i.lote).ing+=i.kg||0;});
-  ((ultimoHist.camiones)||[]).forEach(c=>{
-    if(!c||(c.camp||'')!==sel)return;
-    if(c.descargas&&c.descargas.length)c.descargas.forEach(d=>{const n=d.lote||c.lote;if(n&&n!=='—')g(n).cam+=d.kg||0;});
-    else if(c.lote&&c.lote!=='—')g(c.lote).cam+=c.cargado||0;
-  });
-  const ks=Object.keys(t);
-  if(!ks.length){cont.innerHTML='<div class="vacio">Todavía no hay lotes en esta campaña.</div>';return;}
-  let gk=0,gh=0;
-  const filas=ks.map(k=>{const x=t[k],tot=Math.max(x.ing,x.cam);gk+=tot;gh+=x.has;return `<tr><td>${k}</td><td style="text-align:right">${x.has?fmt(x.has):'—'}</td><td style="text-align:right">${fmt(Math.round(x.ing))}</td><td style="text-align:right">${fmt(Math.round(x.cam))}</td><td style="text-align:right;font-weight:700">${fmt(Math.round(tot))}</td><td style="text-align:right;font-weight:800;color:var(--green)">${x.has>0?fmt(Math.round(tot/x.has)):'—'}</td></tr>`;}).join('');
-  const total=(ks.length>1&&gh>0)?`<tr style="border-top:1px solid var(--border)"><td><b>Total</b></td><td style="text-align:right"><b>${fmt(gh)}</b></td><td></td><td></td><td style="text-align:right"><b>${fmt(Math.round(gk))}</b></td><td style="text-align:right;color:var(--green)"><b>${fmt(Math.round(gk/gh))}</b></td></tr>`:'';
-  cont.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;font-size:13px;border-collapse:collapse"><thead><tr style="color:var(--muted);font-size:11px;text-align:right"><th style="text-align:left">Lote</th><th>Has</th><th>Ingresó</th><th>Camiones</th><th>Total kg</th><th>Rinde kg/ha</th></tr></thead><tbody>${filas}${total}</tbody></table></div>`;
-}
 let editandoSilobolsaIdx=null;
 let editandoEnsayoIdx=null;
 
@@ -525,13 +421,11 @@ db.ref('vivo').on('value', snap=>{
 
 // ── HISTORIAL ─────────────────────────────────────────
 db.ref('historial').on('value', snap=>{
-  ultimoHist=snap.val()||{};
-  renderTodoH();
-});
-db.ref('lotes').on('value', snap=>{
-  ultimoLotes=snap.val()||{};
-  campActualNube=ultimoLotes.campActual||'';
-  renderTodoH();
+  const data=snap.val()||{};
+  renderCamiones(data.camiones||[]);
+  renderSilobolsas(data.silobolsas||[]);
+  renderEnsayos(data.ensayos||[]);
+  renderTotales(data.camiones||[], data.ensayos||[]);
 });
 
 } // fin iniciarEscuchas
@@ -726,7 +620,7 @@ function generarReporte(){
 }
 
 function obtenerCamionesFiltrados(lista){
-  let conIdx=lista.map((c,idx)=>({c,idx})).filter(({c})=>enCampH(c));
+  let conIdx=lista.map((c,idx)=>({c,idx}));
   if(filtroFecha)conIdx=conIdx.filter(({c})=>fechaARaISO(c.fecha)===filtroFecha);
   if(filtroDestino)conIdx=conIdx.filter(({c})=>c.destino===filtroDestino);
   if(filtroCarta)conIdx=conIdx.filter(({c})=>(c.carta||'').toLowerCase().includes(filtroCarta));
@@ -734,7 +628,6 @@ function obtenerCamionesFiltrados(lista){
   if(filtroLote)conIdx=conIdx.filter(({c})=>(c.lote||'').toLowerCase().includes(filtroLote));
   if(filtroComprador)conIdx=conIdx.filter(({c})=>(c.comprador||'').toLowerCase().includes(filtroComprador));
   if(filtroProducto)conIdx=conIdx.filter(({c})=>c.producto===filtroProducto);
-  if(loteH)conIdx=conIdx.filter(({c})=>kgLoteEnCamion(c,loteH)>0);
   return conIdx;
 }
 
@@ -815,8 +708,7 @@ function renderSilobolsas(lista){
   const cont=document.getElementById('lista-silobolsas');
   if(!lista.length){cont.innerHTML='<div class="vacio">Sin datos todavía...</div>';return;}
   ultimoHistorialSilobolsas=lista;
-  const ordenada=lista.map((s,idx)=>({s,idx})).filter(({s})=>enCampH(s)&&(!loteH||silobolsaTieneLote(s,loteH))).reverse();
-  if(!ordenada.length){cont.innerHTML='<div class="vacio">Sin datos en esta campaña.</div>';return;}
+  const ordenada=lista.map((s,idx)=>({s,idx})).reverse();
   cont.innerHTML=ordenada.map(({s,idx},i)=>{
     const aportes=(s.aportes||[]);
     const filasAportes=aportes.length ? aportes.map(a=>`
@@ -961,8 +853,7 @@ function renderEnsayos(lista){
   const cont=document.getElementById('lista-ensayos');
   if(!lista.length){cont.innerHTML='<div class="vacio">Sin datos todavía...</div>';return;}
   ultimoHistorialEnsayos=lista;
-  const ordenada=lista.map((e,idx)=>({e,idx})).filter(({e})=>enCampH(e)).reverse();
-  if(!ordenada.length){cont.innerHTML='<div class="vacio">Sin datos en esta campaña.</div>';return;}
+  const ordenada=lista.map((e,idx)=>({e,idx})).reverse();
   cont.innerHTML=ordenada.map(({e,idx})=>`
     <div class="hist-row">
       <span style="color:var(--muted)">#${e.num} · ${e.fecha||''} ${e.hora||''} — ${e.desc||'—'}</span>
@@ -975,7 +866,7 @@ function renderEnsayos(lista){
 
 // ── TABS ──────────────────────────────────────────────
 function cambiarTab(tab){
-  ['camiones','silobolsas','ensayos','lotes'].forEach(t=>{
+  ['camiones','silobolsas','ensayos'].forEach(t=>{
     document.getElementById('tab-'+t).classList.toggle('activo', t===tab);
     document.getElementById('panel-'+t).style.display = t===tab ? 'block' : 'none';
   });
