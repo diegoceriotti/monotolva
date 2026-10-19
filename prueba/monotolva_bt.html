@@ -365,7 +365,7 @@ setTimeout(function(){
         <div style="margin-bottom:12px">
           <label>Lote actual (cambialo si cambia el origen)</label>
           <input id="lote-actual-camion" placeholder="Ej: Lote 12 - El Fortín">
-          <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;text-transform:none;letter-spacing:0;color:var(--text)"><input type="checkbox" id="camion-desde-silo" onchange="try{localStorage.setItem('monotolva_desde_silo',this.checked?'1':'')}catch(e){}adaptarCampoLote()" style="width:auto"> Cargando DESDE SILOBOLSA (no repartir por lotes de la tolva)</label>
+          <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;text-transform:none;letter-spacing:0;color:var(--text)"><input type="checkbox" id="camion-desde-silo" onchange="try{localStorage.setItem('prueba_monotolva_desde_silo',this.checked?'1':'')}catch(e){}adaptarCampoLote()" style="width:auto"> Cargando DESDE SILOBOLSA (no repartir por lotes de la tolva)</label>
           <div id="tolva-comp-camion" style="font-size:12px;color:var(--yellow);margin-top:6px"></div>
         </div>
 
@@ -764,7 +764,7 @@ setTimeout(function(){
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-10-10 · lotes v7g (PRUEBA)
+    Monotolva — versión 2026-10-10 · lotes v7h (PRUEBA)
   </div>
   <div id="sesion-estado" style="text-align:center;font-size:11px;color:var(--muted);padding:0 0 1rem"></div>
 
@@ -780,7 +780,7 @@ let modoActual='camion';
 let compartidoActivo=false;          // si estamos combinando el total con la otra tolva ahora mismo
 let compartidoRef=null;              // referencia de Firebase escuchada en vivo
 let cargadoCombinado=0;              // total combinado de las dos tolvas (lo que se muestra/usa para la alarma)
-let sensorTuboActivo = localStorage.getItem('monotolva_sensor_tubo_activo') !== '0';   // ON por defecto
+let sensorTuboActivo = localStorage.getItem('prueba_monotolva_sensor_tubo_activo') !== '0';   // ON por defecto
 let btDevice=null,btChar=null,btBuffer='',pesoBT=null;
 
 // ── SINCRONIZACIÓN CON FIREBASE (nube) ─────────────────
@@ -962,9 +962,9 @@ document.getElementById('fecha').valueAsDate=new Date();
 function fmt(n){return Number(n).toLocaleString('es-AR')}
 
 // ── PERSISTENCIA LOCAL (memoria del navegador/tablet) ─
-const LS_KEY='monotolva_resumen_dia';
+const LS_KEY='prueba_monotolva_resumen_dia';
 function generarIdRegistro(){return Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);}
-const LS_KEY_SESION='monotolva_sesion_activa';
+const LS_KEY_SESION='prueba_monotolva_sesion_activa';
 function hoyStr(){return new Date().toLocaleDateString('es-AR')}
 
 function guardarLocal(){
@@ -1057,7 +1057,7 @@ function restaurarSesionActiva(){
 }
 
 // ── RECORDATORIO DE BACKUP ─────────────────────────────
-const LS_KEY_BACKUP_META='monotolva_backup_meta';
+const LS_KEY_BACKUP_META='prueba_monotolva_backup_meta';
 const CIERRES_PARA_RECORDAR=1;   // después de cuántos camiones/silobolsas cerrados avisamos
 
 function leerMetaBackup(){
@@ -1227,7 +1227,7 @@ setInterval(()=>{
 }, 200);
 
 // ══════════ LOTES: ingreso por lote (tara virtual), tolva por lote, rinde ══════════
-const LS_KEY_LOTES='monotolva_lotes';
+const LS_KEY_LOTES='prueba_monotolva_lotes';
 let lotesHas={};        // {nombre:{v:has, ts}}
 let ingresosLote=[];    // [{id,lote,kg,fecha,hora,ultimaEdicion,borrado?}]
 let tolvaComp={};       // {nombre:kg} lo que hay ahora en la tolva, por lote
@@ -1516,7 +1516,7 @@ function actualizarLoteLive(){
 }
 setInterval(actualizarLoteLive,500);
 cargarLotes();
-try{const cs=document.getElementById('camion-desde-silo');if(cs)cs.checked=!!localStorage.getItem('monotolva_desde_silo');}catch(e){}
+try{const cs=document.getElementById('camion-desde-silo');if(cs)cs.checked=!!localStorage.getItem('prueba_monotolva_desde_silo');}catch(e){}
 
 cargarLocal();
 renderLotes();
@@ -1654,7 +1654,7 @@ function manejarSensorTubo(abierto){
 
 function toggleSensorTubo(){
   sensorTuboActivo=!sensorTuboActivo;
-  localStorage.setItem('monotolva_sensor_tubo_activo', sensorTuboActivo?'1':'0');
+  localStorage.setItem('prueba_monotolva_sensor_tubo_activo', sensorTuboActivo?'1':'0');
   actualizarBotonSensorTubo();
 }
 
