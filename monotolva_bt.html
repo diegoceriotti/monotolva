@@ -715,7 +715,7 @@ setTimeout(function(){
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-10-07 + aviso al descartar (03/11)
+    Monotolva — versión 2026-10-07 + aviso al descartar + combinado apagado (03/11)
   </div>
   <div id="sesion-estado" style="text-align:center;font-size:11px;color:var(--muted);padding:0 0 1rem"></div>
 
@@ -981,7 +981,8 @@ function restaurarSesionActiva(){
       renderHistorial();
       document.getElementById('pantalla-form').style.display='none';
       document.getElementById('pantalla-carga').style.display='block';
-      activarCompartido(estado.patente);
+      // Combinado con la otra tolva: APAGADO por defecto (se activa a mano con el botón).
+      desactivarCompartido();
     }
 
     if(data.estadoBolsa){
@@ -2115,7 +2116,9 @@ function iniciarCarga(){
   document.getElementById('pantalla-form').style.display='none';
   document.getElementById('pantalla-carga').style.display='block';
   guardarSesionActiva();
-  activarCompartido(estado.patente);
+  // Combinado con la otra tolva: APAGADO por defecto. Solo se activa a mano con el botón
+  // (para cuando un mismo camión se carga desde dos tolvas).
+  desactivarCompartido();
 }
 
 function iniciarDescargaCamion(){
