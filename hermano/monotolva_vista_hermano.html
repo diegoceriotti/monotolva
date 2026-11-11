@@ -244,6 +244,11 @@ setTimeout(function(){
         <div><label>Comprador</label><input id="edit-c-comprador"></div>
         <div><label>Observaciones</label><input id="edit-c-observaciones"></div>
       </div>
+      <div style="margin-bottom:10px">
+        <label>Kg de cada descarga (corregir si hace falta)</label>
+        <div id="edit-c-kg-wrap"></div>
+        <div id="edit-c-kg-resumen" style="font-size:12px;font-weight:700;margin-top:4px"></div>
+      </div>
       <div class="grid2">
         <button onclick="cerrarEdicionCamion()" style="background:transparent"><i class="ti ti-x"></i> Cancelar</button>
         <button class="primary" onclick="guardarEdicionCamion()"><i class="ti ti-check"></i> Guardar</button>
@@ -755,9 +760,34 @@ function abrirEdicionCamion(idx){
   document.getElementById('edit-c-nombrede').value=c.nombreDe||'Diego';
   document.getElementById('edit-c-comprador').value=c.comprador||'';
   document.getElementById('edit-c-observaciones').value=c.observaciones||'';
+  armarEditorKg(c);
   const panel=document.getElementById('panel-editar-camion');
   panel.style.display='block';
   panel.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// ── Edición de kg por descarga ──
+function armarEditorKg(c){
+  const wrap=document.getElementById('edit-c-kg-wrap');
+  if(!wrap)return;
+  const ds=c.descargas||[];
+  if(ds.length){
+    wrap.innerHTML=ds.map((d,i)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="flex:1;font-size:12px;color:var(--muted)">#${d.num||i+1} · ${d.fecha||''} ${d.hora||''}</span><input type="number" inputmode="decimal" step="1" min="1" class="edit-c-kg" value="${Math.round(d.kg)}" oninput="actualizarTotalKgEdit()" style="width:110px;text-align:right"><span style="font-size:12px;color:var(--muted)">kg</span></div>`).join('');
+  }else{
+    wrap.innerHTML=`<div style="display:flex;align-items:center;gap:8px"><span style="flex:1;font-size:12px;color:var(--muted)">Sin descargas guardadas: total cargado</span><input type="number" inputmode="decimal" step="1" min="1" id="edit-c-kg-total" value="${Math.round(c.cargado||0)}" oninput="actualizarTotalKgEdit()" style="width:110px;text-align:right"><span style="font-size:12px;color:var(--muted)">kg</span></div>`;
+  }
+  actualizarTotalKgEdit();
+}
+function actualizarTotalKgEdit(){
+  const res=document.getElementById('edit-c-kg-resumen');
+  if(!res)return;
+  let total=0;
+  const inputs=document.querySelectorAll('.edit-c-kg');
+  if(inputs.length){inputs.forEach(i=>{total+=parseFloat(i.value)||0;});}
+  else{const t=document.getElementById('edit-c-kg-total');total=t?(parseFloat(t.value)||0):0;}
+  const cupo=parseFloat(document.getElementById('edit-c-cupo').value)||0;
+  const diff=total-cupo;
+  res.innerHTML='Total: '+fmt(Math.round(total))+' kg · diferencia con el cupo: '+(diff>=0?'+':'')+fmt(Math.round(diff))+' kg';
 }
 function cerrarEdicionCamion(){
   editandoCamionIdx=null;
@@ -782,6 +812,43 @@ function guardarEdicionCamion(){
     ultimaEdicion: Date.now()
   };
   if(cupoNuevo && cupoNuevo>=100) cambios.cupo=cupoNuevo;
+  // ── Corrección de kg (por descarga) ──
+  const orig=ultimoHistorialCamiones[editandoCamionIdx]||{};
+  const cupoFinal=cambios.cupo||orig.cupo||0;
+  const dsOrig=orig.descargas||[];
+  let cargadoFinal=orig.cargado||0;
+  if(dsOrig.length){
+    const inputs=document.querySelectorAll('.edit-c-kg');
+    const nuevas=[];
+    let cambioKg=false;
+    for(let i=0;i<dsOrig.length;i++){
+      const v=parseFloat(inputs[i]?inputs[i].value:'');
+      if(!(v>0)){alert('Los kg de la descarga #'+(dsOrig[i].num||i+1)+' tienen que ser un número mayor a 0.');return;}
+      const nd=Object.assign({},dsOrig[i]);
+      if(Math.abs(v-dsOrig[i].kg)>=0.5){
+        cambioKg=true;
+        nd.kg=v;
+        if(nd.kgOriginal===undefined)nd.kgOriginal=dsOrig[i].kg;
+      }
+      nuevas.push(nd);
+    }
+    if(cambioKg){
+      const total=nuevas.reduce((s,x)=>s+x.kg,0);
+      if(!confirm('Vas a cambiar los kg cargados de '+fmt(Math.round(cargadoFinal))+' a '+fmt(Math.round(total))+' kg.\n\nSe actualiza también en la tablet. ¿Confirmás?'))return;
+      cambios.descargas=nuevas;
+      cargadoFinal=total;
+      cambios.cargado=total;
+    }
+  }else{
+    const inp=document.getElementById('edit-c-kg-total');
+    const v=inp?parseFloat(inp.value):NaN;
+    if(inp && v>0 && Math.abs(v-cargadoFinal)>=0.5){
+      if(!confirm('Vas a cambiar los kg cargados de '+fmt(Math.round(cargadoFinal))+' a '+fmt(Math.round(v))+' kg.\n\nSe actualiza también en la tablet. ¿Confirmás?'))return;
+      cargadoFinal=v;
+      cambios.cargado=v;
+    }
+  }
+  cambios.diff=cargadoFinal-cupoFinal;
   db.ref('historial/camiones/'+editandoCamionIdx).update(cambios)
     .then(()=>cerrarEdicionCamion())
     .catch(e=>alert('No se pudo guardar: '+e.message));
