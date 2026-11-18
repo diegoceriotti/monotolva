@@ -247,6 +247,7 @@ setTimeout(function(){
       <div style="margin-bottom:10px">
         <label>Kg de cada descarga (corregir si hace falta)</label>
         <div id="edit-c-kg-wrap"></div>
+        <button type="button" id="edit-c-kg-agregar" onclick="agregarFilaDescarga()" style="margin-top:4px;padding:8px 12px;border-radius:8px;border:1.5px dashed var(--border);background:transparent;color:var(--text);font-size:12px;font-weight:800;cursor:pointer">+ Agregar descarga</button>
         <div id="edit-c-kg-resumen" style="font-size:12px;font-weight:700;margin-top:4px"></div>
       </div>
       <div class="grid2">
@@ -295,7 +296,7 @@ setTimeout(function(){
   </div>
 
   <div style="text-align:center;font-size:11px;color:var(--muted);padding:1rem 0 0.5rem">
-    Monotolva — versión 2026-10-07 + kg por descarga (10/11)
+    Monotolva — versión 2026-10-07 + kg por descarga y agregar descarga (17/11)
   </div>
   <div id="sesion-estado" style="text-align:center;font-size:11px;color:var(--muted);padding:0 0 1rem"></div>
 </div>
@@ -776,14 +777,27 @@ function armarEditorKg(c){
   }else{
     wrap.innerHTML=`<div style="display:flex;align-items:center;gap:8px"><span style="flex:1;font-size:12px;color:var(--muted)">Sin descargas guardadas: total cargado</span><input type="number" inputmode="decimal" step="1" min="1" id="edit-c-kg-total" value="${Math.round(c.cargado||0)}" oninput="actualizarTotalKgEdit()" style="width:110px;text-align:right"><span style="font-size:12px;color:var(--muted)">kg</span></div>`;
   }
+  const bt=document.getElementById('edit-c-kg-agregar');
+  if(bt)bt.style.display=ds.length?'':'none';
   actualizarTotalKgEdit();
+}
+function agregarFilaDescarga(){
+  const wrap=document.getElementById('edit-c-kg-wrap');
+  if(!wrap)return;
+  const n=wrap.querySelectorAll('.edit-c-kg,.edit-c-kg-nueva').length+1;
+  const div=document.createElement('div');
+  div.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:6px';
+  div.innerHTML='<span style="flex:1;font-size:12px;color:var(--yellow);font-weight:700">#'+n+' · NUEVA</span><input type="number" inputmode="decimal" step="1" min="1" class="edit-c-kg-nueva" placeholder="kg" oninput="actualizarTotalKgEdit()" style="width:110px;text-align:right"><span style="font-size:12px;color:var(--muted)">kg</span>';
+  wrap.appendChild(div);
+  const inp=div.querySelector('input');
+  if(inp)inp.focus();
 }
 function actualizarTotalKgEdit(){
   const res=document.getElementById('edit-c-kg-resumen');
   if(!res)return;
   let total=0;
   const inputs=document.querySelectorAll('.edit-c-kg');
-  if(inputs.length){inputs.forEach(i=>{total+=parseFloat(i.value)||0;});}
+  if(inputs.length){inputs.forEach(i=>{total+=parseFloat(i.value)||0;});document.querySelectorAll('.edit-c-kg-nueva').forEach(i=>{total+=parseFloat(i.value)||0;});}
   else{const t=document.getElementById('edit-c-kg-total');total=t?(parseFloat(t.value)||0):0;}
   const cupo=parseFloat(document.getElementById('edit-c-cupo').value)||0;
   const diff=total-cupo;
@@ -832,9 +846,25 @@ function guardarEdicionCamion(){
       }
       nuevas.push(nd);
     }
-    if(cambioKg){
+    const agregadas=[];
+    const filasNuevas=document.querySelectorAll('.edit-c-kg-nueva');
+    for(let j=0;j<filasNuevas.length;j++){
+      const raw=filasNuevas[j].value.trim();
+      if(raw==='')continue;
+      const v=parseFloat(raw);
+      if(!(v>0)){alert('Los kg de la descarga nueva tienen que ser un número mayor a 0 (o dejala vacía para no agregarla).');return;}
+      agregadas.push(v);
+    }
+    if(agregadas.length){
+      const ahora=new Date();
+      const fechaN=ahora.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'});
+      const horaN=ahora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+      const loteN=(dsOrig[dsOrig.length-1]||{}).lote||orig.lote||'—';
+      agregadas.forEach(v=>nuevas.push({kg:v,hora:horaN,fecha:fechaN,num:nuevas.length+1,lote:loteN,agregada:true}));
+    }
+    if(cambioKg||agregadas.length){
       const total=nuevas.reduce((s,x)=>s+x.kg,0);
-      if(!confirm('Vas a cambiar los kg cargados de '+fmt(Math.round(cargadoFinal))+' a '+fmt(Math.round(total))+' kg.\n\nSe actualiza también en la tablet. ¿Confirmás?'))return;
+      if(!confirm('Vas a cambiar los kg cargados de '+fmt(Math.round(cargadoFinal))+' a '+fmt(Math.round(total))+' kg'+(agregadas.length?' (agregás '+agregadas.length+' descarga'+(agregadas.length>1?'s':'')+')':'')+'.\n\nSe actualiza también en la tablet. ¿Confirmás?'))return;
       cambios.descargas=nuevas;
       cargadoFinal=total;
       cambios.cargado=total;
